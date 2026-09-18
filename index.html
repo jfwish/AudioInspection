@@ -2,115 +2,132 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>App Feature Guide</title>
-    <!-- 引入 Swiper CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>聽力頻率測試 (PWA)</title>
     <style>
-        :root { --nav-height: 5vh; --content-height: 95vh; }
-        body, html { margin: 0; height: 100%; overflow: hidden; }
-        
-        /* 頂部按鈕區 */
-        .nav-bar { height: var(--nav-height); display: flex; background: #1a1a1a; }
-        .nav-btn { flex: 1; color: white; font-size: 12px; border-right: 1px solid #333; display: flex; align-items: center; justify-content: center; }
-
-        /* 主容器高度 */
-        .main-container { height: var(--content-height); }
-        
-        /* 圖片縮放容器 */
-        .img-container { height: 80%; display: flex; align-items: center; justify-content: center; background: #000; position: relative; overflow: hidden; }
-        .img-container img { max-height: 100%; width: auto; transition: transform 0.1s; }
-        
-        /* 說明文字區 */
-        .desc-container { height: 20%; padding: 15px; background: #fff; color: #333; font-size: 14px; line-height: 1.5; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; max-width: 500px; margin: 0 auto; text-align: center; background-color: #f5f5f7; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1 { font-size: 24px; }
+        #freqDisplay { font-size: 40px; color: #007aff; font-weight: bold; margin: 10px 0; }
+        input[type=range] { width: 100%; margin: 20px 0; }
+        button { padding: 12px 24px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; margin: 5px; font-weight: bold; transition: 0.2s; }
+        .btn-play { background-color: #007aff; color: white; width: 100%; font-size: 20px; padding: 15px; }
+        .btn-stop { background-color: #ff3b30; color: white; width: 100%; font-size: 20px; padding: 15px; }
+        .btn-note { background-color: #e5e5ea; color: #333; }
+        .record-list { text-align: left; margin-top: 20px; }
+        .record-item { background: white; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; border-left: 4px solid #007aff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .record-time { color: #8e8e93; font-size: 12px; }
     </style>
 </head>
 <body>
 
-    <!-- 1. 頂部按鈕 (動態對應功能數量) -->
-    <nav class="nav-bar">
-        <div class="nav-btn">功能 A</div>
-        <div class="nav-btn">功能 B</div>
-        <div class="nav-btn">功能 C</div>
-    </nav>
-
-    <!-- 2. 主內容區 (垂直滑動: 功能間切換) -->
-    <div class="swiper main-container vertical-swiper">
-        <div class="swiper-wrapper">
-            
-            <!-- 功能一：水平滑動區 -->
-            <div class="swiper-slide">
-                <div class="swiper horizontal-swiper h-full">
-                    <div class="swiper-wrapper">
-                        <!-- 步驟 1 -->
-                        <div class="swiper-slide">
-                            <div class="img-container zoom-area">
-                                <img src="step1.png" alt="步驟一">
-                            </div>
-                            <div class="desc-container">
-                                <strong>第一步：註冊與登入</strong><br>
-                                請輸入您的手機號碼，並點擊獲取驗證碼。
-                            </div>
-                        </div>
-                        <!-- 步驟 2 -->
-                        <div class="swiper-slide">
-                            <div class="img-container zoom-area">
-                                <img src="step2.png" alt="步驟二">
-                            </div>
-                            <div class="desc-container">
-                                <strong>第二步：完善資料</strong><br>
-                                上傳個人頭像並填寫您的基本暱稱。
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 功能二 (以此類推) -->
-            <div class="swiper-slide">
-                <div class="flex items-center justify-center h-full bg-gray-200">下一個功能的內容...</div>
-            </div>
-
+    <div class="card">
+        <h1>聽力頻率測試</h1>
+        <div id="freqDisplay">1000 Hz</div>
+        
+        <!-- 頻率滑桿 -->
+        <input type="range" id="freqSlider" min="125" max="8000" step="1" value="1000">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666;">
+            <span>125 Hz</span><span>8000 Hz</span>
         </div>
+
+        <br><br>
+        <button id="playBtn" class="btn-play">▶ 開始播放</button>
     </div>
 
-    <!-- 引入 Swiper JS -->
-    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
-    <!-- 引入 Hammer.js 或 PinchZoom 以支援兩指縮放 -->
-    <script src="https://unpkg.com/pinch-zoom-js@2.3.5/dist/pinch-zoom.min.js"></script>
+    <div class="card">
+        <p style="margin-top:0; font-weight:bold;">對目前的聲音加上註記：</p>
+        <button class="btn-note" onclick="saveRecord('很清楚')">很清楚</button>
+        <button class="btn-note" onclick="saveRecord('很吃力')">很吃力</button>
+        <button class="btn-note" onclick="saveRecord('聽不到')">聽不到</button>
+    </div>
+
+    <div class="record-list" id="recordList">
+        <h3 style="margin-bottom: 10px;">測試紀錄</h3>
+        <!-- 紀錄會動態加在這裡 -->
+    </div>
 
     <script>
-        // 初始化水平滑動 (步驟切換)
-        const horizontalSwiper = new Swiper('.horizontal-swiper', {
-            direction: 'horizontal',
-            loop: false,
+        // Web Audio API 變數
+        let audioCtx;
+        let oscillator;
+        let gainNode;
+        let isPlaying = false;
+
+        const freqSlider = document.getElementById('freqSlider');
+        const freqDisplay = document.getElementById('freqDisplay');
+        const playBtn = document.getElementById('playBtn');
+        const recordList = document.getElementById('recordList');
+
+        // 更新 UI 頻率顯示
+        freqSlider.addEventListener('input', (e) => {
+            const freq = e.target.value;
+            freqDisplay.textContent = freq + ' Hz';
+            
+            // 如果正在播放，即時無縫平滑改變頻率
+            if (isPlaying && oscillator) {
+                // 使用 exponentialRampToValueAtTime 避免切換頻率時產生爆音
+                oscillator.frequency.exponentialRampToValueAtTime(freq, audioCtx.currentTime + 0.1);
+            }
         });
 
-        // 初始化垂直滑動 (功能切換)
-        const verticalSwiper = new Swiper('.vertical-swiper', {
-            direction: 'vertical',
-            loop: false,
-            mousewheel: true,
+        // 播放/暫停控制 (解決 iOS Autoplay 限制的核心)
+        playBtn.addEventListener('click', () => {
+            if (!audioCtx) {
+                // 必須在使用者首次點擊時初始化 AudioContext
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // 建立振盪器 (產生正弦波)
+                oscillator = audioCtx.createOscillator();
+                oscillator.type = 'sine';
+                
+                // 建立音量控制節點 (用於避免爆音與控制開關)
+                gainNode = audioCtx.createGain();
+                gainNode.gain.value = 0; // 初始靜音
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                // 啟動振盪器 (在背景持續運行)
+                oscillator.start();
+            }
+
+            if (!isPlaying) {
+                // 播放：將音量在 0.1 秒內淡入至 1 (避免爆音)
+                if(audioCtx.state === 'suspended') audioCtx.resume(); // 喚醒 iOS 上的音效
+                oscillator.frequency.setValueAtTime(freqSlider.value, audioCtx.currentTime);
+                gainNode.gain.setTargetAtTime(1, audioCtx.currentTime, 0.05);
+                playBtn.textContent = '■ 停止播放';
+                playBtn.className = 'btn-stop';
+                isPlaying = true;
+            } else {
+                // 停止：將音量在 0.1 秒內淡出至 0
+                gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+                playBtn.textContent = '▶ 開始播放';
+                playBtn.className = 'btn-play';
+                isPlaying = false;
+            }
         });
 
-        // 初始化兩指縮放 (針對所有圖片容器)
-        document.querySelectorAll('.zoom-area').forEach(el => {
-            new PinchZoom(el, {
-                draggableUnzoomed: false,
-                minZoom: 1,
-                onZoomStart: function() {
-                    // 縮放時禁用滑動，避免衝突
-                    horizontalSwiper.allowTouchMove = false;
-                    verticalSwiper.allowTouchMove = false;
-                },
-                onZoomEnd: function() {
-                    // 還原後恢復滑動
-                    horizontalSwiper.allowTouchMove = true;
-                    verticalSwiper.allowTouchMove = true;
-                }
-            });
-        });
+        // 儲存紀錄功能
+        function saveRecord(note) {
+            const freq = freqSlider.value;
+            const now = new Date();
+            const timeString = now.getHours().toString().padStart(2, '0') + ':' + 
+                               now.getMinutes().toString().padStart(2, '0') + ':' + 
+                               now.getSeconds().toString().padStart(2, '0');
+
+            const recordHtml = `
+                <div class="record-item">
+                    <span style="font-weight:bold; width: 80px;">${freq} Hz</span>
+                    <span style="flex-grow:1; color:#333;">${note}</span>
+                    <span class="record-time">${timeString}</span>
+                </div>
+            `;
+            
+            // 將新紀錄安插在標題下方（最上方）
+            recordList.insertAdjacentHTML('afterbegin', recordHtml);
+        }
     </script>
     <script>
         // 檢查瀏覽器是否支援 Service Worker
