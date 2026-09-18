@@ -3,115 +3,441 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>聽力頻率測試 (PWA)</title>
+    <title>進階即時擴音器與音頻檢測 PWA</title>
+    <link rel="manifest" href="manifest.json">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; max-width: 500px; margin: 0 auto; text-align: center; background-color: #f5f5f7; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; background-color: #f5f5f7;}
+        
+        /* --- 分頁導覽列樣式 --- */
+        .tab-nav { display: flex; border-bottom: 2px solid #ccc; margin-bottom: 20px; }
+        .tab-btn { flex: 1; padding: 10px; background: none; border: none; font-size: 16px; cursor: pointer; outline: none; }
+        .tab-btn.active { font-weight: bold; border-bottom: 3px solid #007bff; color: #007bff; }
+        
+        /* --- 區塊顯示邏輯 --- */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* --- UI 卡片與共用按鈕樣式 --- */
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        h1 { font-size: 24px; }
-        #freqDisplay { font-size: 40px; color: #007aff; font-weight: bold; margin: 10px 0; }
-        input[type=range] { width: 100%; margin: 20px 0; }
-        button { padding: 12px 24px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; margin: 5px; font-weight: bold; transition: 0.2s; }
-        .btn-play { background-color: #007aff; color: white; width: 100%; font-size: 20px; padding: 15px; }
-        .btn-stop { background-color: #ff3b30; color: white; width: 100%; font-size: 20px; padding: 15px; }
-        .btn-note { background-color: #e5e5ea; color: #333; }
+        .control-group { margin-bottom: 20px; }
+        .btn { padding: 10px 20px; font-size: 16px; margin-right: 10px; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; font-weight: bold;}
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-success { background-color: #28a745; color: white; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+        .btn-warning { background-color: #ff8c00; color: white; } 
+        .btn-sm { padding: 5px 10px; font-size: 14px; margin-right: 5px; }
+        .btn:disabled { background-color: #ccc; cursor: not-allowed; }
+        input[type=range] { width: 100%; margin: 15px 0; }
+        
+        /* --- 頻段設定 UI (擴音器用) --- */
+        .band-row { border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; background-color: #fafafa; }
+        .band-row input[type=number] { width: 70px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        .band-row select { padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        .input-group { margin-bottom: 8px; font-size: 14px; }
+        .action-group { margin-top: 10px; text-align: right; }
+
+        /* --- 音頻檢測專屬 UI --- */
+        #testFreqDisplay { font-size: 40px; color: #007aff; font-weight: bold; margin: 10px 0; text-align: center;}
+        .test-select { width: 100%; padding: 12px; border-radius: 8px; font-size: 16px; margin-bottom: 20px; border: 1px solid #ccc; background-color: #fff; }
+        .btn-play-test { background-color: #007aff; color: white; width: 100%; font-size: 20px; padding: 15px; }
+        .btn-stop-test { background-color: #ff3b30; color: white; width: 100%; font-size: 20px; padding: 15px; }
+        .btn-note { background-color: #e5e5ea; color: #333; margin: 5px; flex: 1;}
         .record-list { text-align: left; margin-top: 20px; }
         .record-item { background: white; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; border-left: 4px solid #007aff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .record-time { color: #8e8e93; font-size: 12px; }
+        .label-text { font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px; text-align: left; color: #333; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h1>聽力頻率測試</h1>
-        <div id="freqDisplay">1000 Hz</div>
+    <!-- 分頁按鈕列 -->
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('amplifier')">進階擴音器</button>
+        <button class="tab-btn" onclick="switchTab('audio-test')">音頻檢測</button>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 區塊 1：進階即時擴音器                       -->
+    <!-- ========================================== -->
+    <div id="amplifier" class="tab-content active">
         
-        <!-- 頻率滑桿 -->
-        <input type="range" id="freqSlider" min="125" max="8000" step="1" value="1000">
-        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666;">
-            <span>125 Hz</span><span>8000 Hz</span>
+        <div class="card">
+            <h2 style="margin-top: 0;">主控制面板</h2>
+            <div class="control-group">
+                <button id="btnStart" class="btn btn-primary">開始收音</button>
+                <button id="btnStop" class="btn btn-danger" disabled>停止</button>
+            </div>
+            <div class="control-group">
+                <label>主音量放大倍率: <span id="volumeValue">1.0</span>x</label>
+                <input type="range" id="volumeSlider" min="0" max="5" step="0.1" value="1.0">
+            </div>
         </div>
 
-        <br><br>
-        <button id="playBtn" class="btn-play">▶ 開始播放</button>
+        <div class="card">
+            <h2 style="margin-top: 0;">多段頻段音量控制 (EQ)</h2>
+            <p style="font-size: 13px; color: #666;">針對特定頻率範圍設定專屬的音量縮放曲線。修改數值或啟用狀態會即時生效。</p>
+            
+            <div id="bandsContainer"></div>
+            
+            <div style="margin-top: 15px;">
+                <button id="btnAddBand" class="btn btn-secondary">+ 新增頻段範圍</button>
+            </div>
+        </div>
+
     </div>
 
-    <div class="card">
-        <p style="margin-top:0; font-weight:bold;">對目前的聲音加上註記：</p>
-        <button class="btn-note" onclick="saveRecord('很清楚')">很清楚</button>
-        <button class="btn-note" onclick="saveRecord('很吃力')">很吃力</button>
-        <button class="btn-note" onclick="saveRecord('聽不到')">聽不到</button>
-    </div>
+    <!-- ========================================== -->
+    <!-- 區塊 2：音頻檢測 (聽力頻率測試)                -->
+    <!-- ========================================== -->
+    <div id="audio-test" class="tab-content">
+        <div class="card">
+            <h2 style="margin-top: 0; text-align: center;">聽力頻率測試</h2>
+            <div id="testFreqDisplay">1000 Hz</div>
+            
+            <!-- 頻率滑桿 -->
+            <label class="label-text">測試頻率：</label>
+            <input type="range" id="testFreqSlider" min="125" max="8000" step="1" value="1000">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 15px;">
+                <span>125 Hz</span><span>8000 Hz</span>
+            </div>
 
-    <div class="record-list" id="recordList">
-        <h3 style="margin-bottom: 10px;">測試紀錄</h3>
-        <!-- 紀錄會動態加在這裡 -->
+            <!-- 音量滑桿 -->
+            <label class="label-text">音量大小 (預設安全音量 10%)：</label>
+            <input type="range" id="testVolSlider" min="0" max="1" step="0.01" value="0.1">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 20px;">
+                <span>0%</span><span id="testVolDisplay">10%</span><span>100%</span>
+            </div>
+
+            <!-- 聲音類型選擇 -->
+            <label for="testWaveType" class="label-text">遇到耳鳴干擾時，請切換聲音類型：</label>
+            <select id="testWaveType" class="test-select">
+                <option value="sine">正弦波 (預設純音，最平滑)</option>
+                <option value="triangle">三角波 (略帶毛邊，與耳鳴有區隔)</option>
+                <option value="square">方波 (8-bit 電子音，對比極強烈)</option>
+            </select>
+
+            <button id="testPlayBtn" class="btn btn-play-test">▶ 開始播放</button>
+            <p style="font-size: 12px; color: #ff3b30; margin-top: 10px; text-align: center;">保護機制：播放時音量將在 3 秒內緩慢上升至設定值</p>
+        </div>
+
+        <div class="card">
+            <p style="margin-top:0; font-weight:bold;">對目前的聲音加上註記：</p>
+            <div style="display: flex; justify-content: space-between;">
+                <button class="btn btn-note" onclick="saveTestRecord('很清楚')">很清楚</button>
+                <button class="btn btn-note" onclick="saveTestRecord('很吃力')">很吃力</button>
+                <button class="btn btn-note" onclick="saveTestRecord('聽不到')">聽不到</button>
+            </div>
+        </div>
+
+        <div class="record-list" id="testRecordList">
+            <h3 style="margin-bottom: 10px;">測試紀錄</h3>
+            <!-- 紀錄會動態加在這裡 -->
+        </div>
     </div>
 
     <script>
-        // Web Audio API 變數
-        let audioCtx;
-        let oscillator;
-        let gainNode;
-        let isPlaying = false;
+        /* ========================================== */
+        /* --- 1. 分頁切換邏輯 ---                     */
+        /* ========================================== */
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            const eventTarget = event.currentTarget;
+            if(eventTarget) eventTarget.classList.add('active');
+        }
 
-        const freqSlider = document.getElementById('freqSlider');
-        const freqDisplay = document.getElementById('freqDisplay');
-        const playBtn = document.getElementById('playBtn');
-        const recordList = document.getElementById('recordList');
+        /* ========================================== */
+        /* --- 2. [擴音器] 音訊核心與全域變數 ---         */
+        /* ========================================== */
+        let audioContext;
+        let mediaStream;
+        let sourceNode;
+        let masterGainNode;
+        let eqFilterNodes = []; 
 
-        // 更新 UI 頻率顯示
-        freqSlider.addEventListener('input', (e) => {
-            const freq = e.target.value;
-            freqDisplay.textContent = freq + ' Hz';
+        const btnStart = document.getElementById('btnStart');
+        const btnStop = document.getElementById('btnStop');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumeValue = document.getElementById('volumeValue');
+
+        volumeSlider.addEventListener('input', (e) => {
+            const value = e.target.value;
+            volumeValue.textContent = value;
+            if (masterGainNode) masterGainNode.gain.value = value;
+        });
+
+        /* ========================================== */
+        /* --- 3. [擴音器] 動態頻段 UI 與操作邏輯 ---    */
+        /* ========================================== */
+        const bandsContainer = document.getElementById('bandsContainer');
+        let bandIdCounter = 0;
+
+        function addBandRow() {
+            const id = bandIdCounter++;
+            const div = document.createElement('div');
+            div.className = 'band-row';
+            div.id = `band-${id}`;
+            div.setAttribute('data-enabled', 'false'); 
             
-            // 如果正在播放，即時無縫平滑改變頻率
-            if (isPlaying && oscillator) {
-                // 使用 exponentialRampToValueAtTime 避免切換頻率時產生爆音
-                oscillator.frequency.exponentialRampToValueAtTime(freq, audioCtx.currentTime + 0.1);
+            div.innerHTML = `
+                <div class="input-group">
+                    <strong>頻率 (Hz):</strong>
+                    <input type="number" class="f-start" value="500" min="20" max="20000" style="width: 70px; padding: 5px;"> ~ 
+                    <input type="number" class="f-end" value="2000" min="20" max="20000" style="width: 70px; padding: 5px;">
+                </div>
+                <div class="input-group">
+                    <strong>倍率 (x):</strong>
+                    <input type="number" class="g-start" value="1.0" min="0" max="10" step="0.1" style="width: 70px; padding: 5px;"> ~ 
+                    <input type="number" class="g-end" value="2.0" min="0" max="10" step="0.1" style="width: 70px; padding: 5px;">
+                </div>
+                <div class="input-group">
+                    <strong>模式:</strong>
+                    <select class="curve-type" style="padding: 5px;">
+                        <option value="constant">等量 (固定起始值)</option>
+                        <option value="linear">等差 (線性)</option>
+                        <option value="geometric">等倍 (指數)</option>
+                        <option value="curveUp">圓曲線 (開口向上)</option>
+                        <option value="curveDown">圓曲線 (開口向下)</option>
+                    </select>
+                </div>
+                <div class="action-group">
+                    <button class="btn btn-success btn-sm" id="btn-toggle-${id}" onclick="toggleBand(${id})">啟用</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteBand(${id})">刪除</button>
+                </div>
+            `;
+            bandsContainer.appendChild(div);
+            applyEQBands(); 
+        }
+
+        document.getElementById('btnAddBand').addEventListener('click', addBandRow);
+        bandsContainer.addEventListener('change', () => { applyEQBands(); });
+
+        function toggleBand(id) {
+            const row = document.getElementById(`band-${id}`);
+            const btn = document.getElementById(`btn-toggle-${id}`);
+            const isEnabled = row.getAttribute('data-enabled') === 'true';
+
+            if (isEnabled) {
+                row.setAttribute('data-enabled', 'false');
+                btn.className = 'btn btn-success btn-sm'; 
+                btn.innerText = '啟用';
+            } else {
+                row.setAttribute('data-enabled', 'true');
+                btn.className = 'btn btn-warning btn-sm'; 
+                btn.innerText = '停用';
+            }
+            applyEQBands(); 
+        }
+
+        function deleteBand(id) {
+            const row = document.getElementById(`band-${id}`);
+            if (row) {
+                row.remove();
+                applyEQBands(); 
+            }
+        }
+
+        /* ========================================== */
+        /* --- 4. [擴音器] 數學曲線計算引擎 ---         */
+        /* ========================================== */
+        function getCurveY(x, type) {
+            switch(type) {
+                case 'constant': return 0;
+                case 'linear': return x;
+                case 'curveUp': return 1 - Math.sqrt(1 - x * x); 
+                case 'curveDown': return Math.sqrt(1 - (x - 1) * (x - 1));
+                default: return x;
+            }
+        }
+
+        function calculateGainMultiplier(x, gStart, gEnd, type) {
+            if (type === 'geometric') {
+                const s = Math.max(gStart, 0.001);
+                const e = Math.max(gEnd, 0.001);
+                return s * Math.pow(e / s, x);
+            }
+            return gStart + (gEnd - gStart) * getCurveY(x, type); 
+        }
+
+        /* ========================================== */
+        /* --- 5. [擴音器] 音訊管線重建邏輯 ---         */
+        /* ========================================== */
+        function applyEQBands() {
+            if (!audioContext || !masterGainNode) return; 
+
+            masterGainNode.disconnect();
+            eqFilterNodes.forEach(node => node.disconnect());
+            eqFilterNodes = [];
+
+            const rows = document.querySelectorAll('.band-row');
+            let previousNode = masterGainNode;
+
+            rows.forEach(row => {
+                if (row.getAttribute('data-enabled') === 'false') return;
+
+                const fStart = parseFloat(row.querySelector('.f-start').value);
+                const fEnd = parseFloat(row.querySelector('.f-end').value);
+                const gStart = parseFloat(row.querySelector('.g-start').value);
+                const gEnd = parseFloat(row.querySelector('.g-end').value);
+                const type = row.querySelector('.curve-type').value;
+
+                if (fStart >= fEnd) return; 
+
+                const N = 10; 
+                for(let i = 0; i < N; i++) {
+                    const x = (N === 1) ? 0 : (i / (N - 1));
+                    const freq = fStart * Math.pow(fEnd / fStart, x);
+                    const gainMult = calculateGainMultiplier(x, gStart, gEnd, type);
+                    const gainDb = 20 * Math.log10(Math.max(gainMult, 0.0001));
+
+                    const filter = audioContext.createBiquadFilter();
+                    filter.type = 'peaking';
+                    filter.frequency.value = freq;
+                    
+                    const octaves = Math.log2(fEnd / fStart);
+                    const bandwidthOctaves = octaves / N;
+                    filter.Q.value = Math.max(0.1, Math.sqrt(Math.pow(2, bandwidthOctaves)) / (Math.pow(2, bandwidthOctaves) - 1));
+                    filter.gain.value = gainDb;
+
+                    previousNode.connect(filter);
+                    previousNode = filter;
+                    eqFilterNodes.push(filter);
+                }
+            });
+
+            previousNode.connect(audioContext.destination);
+        }
+
+        /* ========================================== */
+        /* --- 6. [擴音器] 啟動與停止邏輯 ---           */
+        /* ========================================== */
+        btnStart.addEventListener('click', async () => {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+                });
+
+                sourceNode = audioContext.createMediaStreamSource(mediaStream);
+                masterGainNode = audioContext.createGain();
+                masterGainNode.gain.value = volumeSlider.value;
+
+                sourceNode.connect(masterGainNode);
+                applyEQBands();
+
+                btnStart.disabled = true;
+                btnStop.disabled = false;
+            } catch (err) {
+                console.error("無法存取麥克風: ", err);
+                alert("請確認已允許麥克風權限！");
             }
         });
 
-        // 播放/暫停控制 (解決 iOS Autoplay 限制的核心)
-        playBtn.addEventListener('click', () => {
-            if (!audioCtx) {
+        btnStop.addEventListener('click', () => {
+            if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+            if (audioContext) audioContext.close();
+            btnStart.disabled = false;
+            btnStop.disabled = true;
+        });
+
+
+        /* ========================================== */
+        /* --- 7. [音頻檢測] 獨立邏輯區塊 ---           */
+        /* ========================================== */
+        
+        let testAudioCtx;
+        let testOscillator;
+        let testGainNode;
+        let isTestPlaying = false;
+
+        const testFreqSlider = document.getElementById('testFreqSlider');
+        const testFreqDisplay = document.getElementById('testFreqDisplay');
+        const testVolSlider = document.getElementById('testVolSlider');
+        const testVolDisplay = document.getElementById('testVolDisplay');
+        const testWaveType = document.getElementById('testWaveType');
+        const testPlayBtn = document.getElementById('testPlayBtn');
+        const testRecordList = document.getElementById('testRecordList');
+
+        // 更新 UI 頻率顯示
+        testFreqSlider.addEventListener('input', (e) => {
+            const freq = e.target.value;
+            testFreqDisplay.textContent = freq + ' Hz';
+            
+            // 如果正在播放，即時無縫平滑改變頻率
+            if (isTestPlaying && testOscillator) {
+                testOscillator.frequency.exponentialRampToValueAtTime(freq, testAudioCtx.currentTime + 0.1);
+            }
+        });
+
+        // 更新 UI 音量顯示與即時調整
+        testVolSlider.addEventListener('input', (e) => {
+            const vol = parseFloat(e.target.value);
+            testVolDisplay.textContent = Math.round(vol * 100) + '%';
+            
+            // 若在播放中拖曳音量滑桿，0.1秒平滑過渡避免爆音
+            if (isTestPlaying && testGainNode) {
+                testGainNode.gain.setTargetAtTime(vol, testAudioCtx.currentTime, 0.1);
+            }
+        });
+
+        // 監聽波型切換：即便在播放中也能即時改變音色
+        testWaveType.addEventListener('change', (e) => {
+            if (testOscillator) {
+                testOscillator.type = e.target.value;
+            }
+        });
+
+        // 播放/暫停控制
+        testPlayBtn.addEventListener('click', () => {
+            if (!testAudioCtx) {
                 // 必須在使用者首次點擊時初始化 AudioContext
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                testAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 
-                // 建立振盪器 (產生正弦波)
-                oscillator = audioCtx.createOscillator();
-                oscillator.type = 'sine';
+                // 建立振盪器
+                testOscillator = testAudioCtx.createOscillator();
+                testOscillator.type = testWaveType.value; 
                 
-                // 建立音量控制節點 (用於避免爆音與控制開關)
-                gainNode = audioCtx.createGain();
-                gainNode.gain.value = 0; // 初始靜音
+                // 建立音量控制節點
+                testGainNode = testAudioCtx.createGain();
+                testGainNode.gain.value = 0; // 確保初始是絕對靜音
                 
-                oscillator.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
+                testOscillator.connect(testGainNode);
+                testGainNode.connect(testAudioCtx.destination);
                 
-                // 啟動振盪器 (在背景持續運行)
-                oscillator.start();
+                // 啟動振盪器
+                testOscillator.start();
             }
 
-            if (!isPlaying) {
-                // 播放：將音量在 0.1 秒內淡入至 1 (避免爆音)
-                if(audioCtx.state === 'suspended') audioCtx.resume(); // 喚醒 iOS 上的音效
-                oscillator.frequency.setValueAtTime(freqSlider.value, audioCtx.currentTime);
-                gainNode.gain.setTargetAtTime(1, audioCtx.currentTime, 0.05);
-                playBtn.textContent = '■ 停止播放';
-                playBtn.className = 'btn-stop';
-                isPlaying = true;
+            if (!isTestPlaying) {
+                if(testAudioCtx.state === 'suspended') testAudioCtx.resume(); 
+                testOscillator.frequency.setValueAtTime(testFreqSlider.value, testAudioCtx.currentTime);
+                
+                // 讀取目前的音量設定
+                const targetVol = parseFloat(testVolSlider.value);
+                
+                // 【核心保護機制】：從無到有，在 3 秒內慢慢到達目標音量
+                testGainNode.gain.cancelScheduledValues(testAudioCtx.currentTime);
+                testGainNode.gain.setValueAtTime(0, testAudioCtx.currentTime); 
+                testGainNode.gain.linearRampToValueAtTime(targetVol, testAudioCtx.currentTime + 3.0);
+                
+                testPlayBtn.textContent = '■ 停止播放';
+                testPlayBtn.className = 'btn btn-stop-test';
+                isTestPlaying = true;
             } else {
-                // 停止：將音量在 0.1 秒內淡出至 0
-                gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
-                playBtn.textContent = '▶ 開始播放';
-                playBtn.className = 'btn-play';
-                isPlaying = false;
+                // 停止：取消爬升排程，並將音量在 0.1 秒內淡出至 0
+                testGainNode.gain.cancelScheduledValues(testAudioCtx.currentTime);
+                testGainNode.gain.setTargetAtTime(0, testAudioCtx.currentTime, 0.05);
+                testPlayBtn.textContent = '▶ 開始播放';
+                testPlayBtn.className = 'btn btn-play-test';
+                isTestPlaying = false;
             }
         });
 
         // 儲存紀錄功能
-        function saveRecord(note) {
-            const freq = freqSlider.value;
+        function saveTestRecord(note) {
+            const freq = testFreqSlider.value;
             const now = new Date();
             const timeString = now.getHours().toString().padStart(2, '0') + ':' + 
                                now.getMinutes().toString().padStart(2, '0') + ':' + 
@@ -125,15 +451,15 @@
                 </div>
             `;
             
-            // 將新紀錄安插在標題下方（最上方）
-            recordList.insertAdjacentHTML('afterbegin', recordHtml);
+            testRecordList.insertAdjacentHTML('afterbegin', recordHtml);
         }
-    </script>
-    <script>
-        // 檢查瀏覽器是否支援 Service Worker
+
+        /* ========================================== */
+        /* --- 8. Service Worker 註冊 ---              */
+        /* ========================================== */
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js')
-                .then(() => console.log("Service Worker 註冊成功！"));
+                .catch(err => console.error("Service Worker 註冊失敗", err));
         }
     </script>
 </body>
