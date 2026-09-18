@@ -195,7 +195,6 @@
         </div>
 
         <div class="card">
-            <!-- 加入清除所有紀錄按鈕 -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <p style="margin:0; font-weight:bold;">對目前的聲音加上註記：</p>
                 <button class="btn btn-sm btn-danger" style="width: auto;" onclick="clearAllTestRecords()">清除所有記錄</button>
@@ -209,7 +208,6 @@
         </div>
 
         <div class="record-list" id="testRecordList">
-            <!-- 標題與容器 -->
             <h3 id="testRecordTitle" style="margin-bottom: 10px;">測試紀錄</h3>
             <div id="testRecordItemsContainer"></div>
         </div>
@@ -274,7 +272,7 @@
         }
 
         /* ========================================== */
-        /* --- [擴音器] 全域變數與組態管理 ---         */
+        /* --- [擴音器] 全域變數與組態持久化管理 (localStorage) --- */
         /* ========================================== */
         let audioContext;
         let mediaStream;
@@ -285,11 +283,18 @@
         let noiseFilterLowpass = null;
         let isRecording = false;
 
-        // 組態管理系統
+        // 組態系統變數
         let configDict = {};
         let configCounter = 1;
-        let isApplyingConfig = false; // 防呆旗標：讀取組態時暫停觸發 markConfigChanged
+        let isApplyingConfig = false; 
 
+        // 將組態資料存入 localStorage
+        function saveConfigToStorage() {
+            localStorage.setItem('pwa_audio_configs', JSON.stringify(configDict));
+            localStorage.setItem('pwa_audio_config_counter', configCounter.toString());
+        }
+
+        // 讀取當前 UI 上的所有設定數值
         function getCurrentSettings() {
             let bands = [];
             document.querySelectorAll('.band-row').forEach(row => {
@@ -313,19 +318,49 @@
             };
         }
 
+        // 任何 UI 設定被改動時，立即記錄到「預存變更」並存入 localStorage
         function markConfigChanged() {
-            if (isApplyingConfig) return; // 如果正在套用載入的組態，不要覆寫
+            if (isApplyingConfig) return; 
             const sel = document.getElementById('selConfig');
             if (sel.value !== '預存變更') {
                 sel.value = '預存變更';
                 document.getElementById('btnDelConfig').disabled = true;
             }
             configDict['預存變更'] = getCurrentSettings();
+            saveConfigToStorage();
         }
 
-        // 當畫面載入完畢，初始化預存變更
+        // 網頁載入時：從 localStorage 載入並還原組態
         window.addEventListener('DOMContentLoaded', () => {
-            configDict['預存變更'] = getCurrentSettings();
+            const savedConfigs = localStorage.getItem('pwa_audio_configs');
+            if (savedConfigs) {
+                try { configDict = JSON.parse(savedConfigs); } 
+                catch (e) { configDict = {}; }
+            }
+            
+            const savedCounter = localStorage.getItem('pwa_audio_config_counter');
+            if (savedCounter) {
+                configCounter = parseInt(savedCounter, 10);
+            }
+
+            const sel = document.getElementById('selConfig');
+            // 將所有組態名稱加入下拉選單
+            for (const configName in configDict) {
+                if (configName !== '預存變更') {
+                    const opt = document.createElement('option');
+                    opt.value = configName;
+                    opt.textContent = configName;
+                    sel.appendChild(opt);
+                }
+            }
+
+            // 還原上一次最後的操作狀態 (預存變更)
+            if (configDict['預存變更']) {
+                applySettings(configDict['預存變更']);
+            } else {
+                configDict['預存變更'] = getCurrentSettings();
+                saveConfigToStorage();
+            }
         });
 
         // 下拉選單切換組態
@@ -336,14 +371,12 @@
             } else {
                 document.getElementById('btnDelConfig').disabled = false;
             }
-            
-            // 載入選擇的組態
             if (configDict[selected]) {
                 applySettings(configDict[selected]);
             }
         });
 
-        // 套用組態並更新 UI
+        // 套用組態設定到 UI 上
         async function applySettings(config) {
             isApplyingConfig = true; // 開啟防呆旗標
 
@@ -424,7 +457,7 @@
             });
 
             rebuildAudioPipeline();
-            isApplyingConfig = false; // 關閉防呆旗標
+            isApplyingConfig = false; 
         }
 
         // 儲存按鈕
@@ -439,11 +472,14 @@
                 sel.appendChild(opt);
                 sel.value = newName;
                 document.getElementById('btnDelConfig').disabled = false;
+                
+                saveConfigToStorage();
                 showToast('成功');
             } else {
                 showConfirmDialog('確定要覆寫內容請在右邊寫上 Yes', (match) => {
                     if(match) {
                         configDict[sel.value] = getCurrentSettings();
+                        saveConfigToStorage();
                         showToast('成功');
                     } else {
                         showToast('失敗');
@@ -452,7 +488,7 @@
             }
         });
 
-        // 刪除按鈕
+        // 刪除組態按鈕
         document.getElementById('btnDelConfig').addEventListener('click', () => {
             const sel = document.getElementById('selConfig');
             showConfirmDialog('確定要刪除請在右邊寫上 Yes', (match) => {
@@ -461,10 +497,11 @@
                     delete configDict[target];
                     sel.querySelector(`option[value="${target}"]`).remove();
                     
-                    // 自動跳回預存變更並載入
                     sel.value = '預存變更';
                     document.getElementById('btnDelConfig').disabled = true;
                     applySettings(configDict['預存變更']);
+                    
+                    saveConfigToStorage();
                     showToast('成功');
                 } else {
                     showToast('失敗');
