@@ -1,15 +1,24 @@
 {
-  "name": "我的第一個 PWA",
-  "short_name": "MyPWA",
-  "start_url": "index.html",
+  "name": "進階即時擴音器與音頻檢測",
+  "short_name": "助聽精靈",
+  "description": "提供即時麥克風收音放大、多段 EQ、頻譜分析與聽力頻率測試功能的專業工具。",
+  "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "background_color": "#f5f5f7",
+  "theme_color": "#007bff",
+  "orientation": "portrait",
   "icons": [
     {
-      "src": "icon.png",
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
