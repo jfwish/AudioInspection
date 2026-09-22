@@ -166,7 +166,7 @@
                     </div>
                 </div>
 
-                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.13</p>
+                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.14</p>
             </div>
 
             <!-- ========================================== -->
@@ -280,8 +280,8 @@
 
                         <!-- C. 匯入音檔 (正方形) -->
                         <button id="btnAnaImportFile" class="btn btn-info btn-square" style="width: 80px; height: 80px; font-size: 14px;">📂<br>匯入音檔</button>
-                        <!-- 隱藏的檔案輸入框 -->
-                        <input type="file" id="anaFileInput" accept="audio/*" style="display: none;">
+                        <!-- ⚠️ 擴充 accept 屬性：允許音檔與影片，明確指定副檔名以防 iOS 灰階禁用 -->
+                        <input type="file" id="anaFileInput" accept="audio/*, video/*, .mp3, .wav, .m4a, .mp4, .mov" style="display: none;">
                         <div class="ana-divider"></div>
 
                         <!-- E & F. 組態設定區 -->
@@ -420,7 +420,7 @@
         });
 
         /* ========================================== */
-        /* --- Utils: Tab Switching ---               */
+        /* --- Utils: Tab Switching & Orientation --- */
         /* ========================================== */
         function switchTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -431,8 +431,16 @@
 
             if (tabId === 'audio-analysis') {
                 document.body.classList.add('analysis-mode');
+                // 嘗試強制鎖定螢幕方向為橫向
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(e => console.log('螢幕鎖定不支援或被阻擋', e));
+                }
             } else {
                 document.body.classList.remove('analysis-mode');
+                // 解除螢幕方向鎖定
+                if (screen.orientation && screen.orientation.unlock) {
+                    try { screen.orientation.unlock(); } catch(e) {}
+                }
             }
 
             if (tabId !== 'audio-test' && typeof isTestPlaying !== 'undefined' && isTestPlaying) {
@@ -1151,8 +1159,7 @@
         let ana_audioCtx;
         let ana_sourceNode;
         let ana_mediaStream;
-        let ana_audioElement = new Audio();
-        ana_audioElement.crossOrigin = "anonymous";
+        let ana_audioElement = null;
         let ana_isPlaying = false;
         let ana_isMuted = false;
         
@@ -1478,20 +1485,34 @@
             const file = e.target.files[0];
             if (!file) return;
             
+            // 確保環境與授權已準備好
             await initAnaContext();
             
-            // 💡 強制產生全新 Audio 元件，迴避 Web Audio API 單次元件綁定限制 (InvalidStateError)
+            // 💡 強制產生全新 video 元件，迴避 Web Audio API 單次元件綁定限制與 iOS 影片解碼限制
             if (ana_audioElement) {
                 ana_audioElement.pause();
+                ana_audioElement.removeAttribute('src');
             }
-            ana_audioElement = new Audio();
+            ana_audioElement = document.createElement('video');
+            ana_audioElement.playsInline = true;
             ana_audioElement.crossOrigin = "anonymous";
             ana_audioElement.src = URL.createObjectURL(file);
             
-            try { ana_sourceNode = ana_audioCtx.createMediaElementSource(ana_audioElement); } 
-            catch(err) { console.error("MediaElementSource Error:", err); }
+            // 同步啟動播放，鎖定 iOS 的 User Gesture Token
+            const playPromise = ana_audioElement.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(err => {
+                    console.warn("自動播放遭阻擋或檔案不支援:", err);
+                });
+            }
             
-            ana_audioElement.play(); ana_audioElement.loop = true; 
+            try { 
+                ana_sourceNode = ana_audioCtx.createMediaElementSource(ana_audioElement); 
+            } catch(err) { 
+                console.error("MediaElementSource Error:", err); 
+            }
+            
+            ana_audioElement.loop = true; 
             ana_rebuildAudioPipeline();
             
             anaSpecRef.ctx = ana_audioCtx; 
