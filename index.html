@@ -123,8 +123,12 @@
                         <button id="btnScreenWake" class="btn btn-sm btn-secondary">螢幕常亮(防暫停)：關</button>
                         <button id="btnHardwareNoise" class="btn btn-sm btn-secondary">降噪：關</button>
                         <button id="btnBackgroundKeep" class="btn btn-sm btn-secondary">防休眠(背景執行)：關</button>
-                        <!-- 🌟 新增：引擎模式切換 (跨兩欄寬度) 🌟 -->
-                        <button id="btnEngineMode" class="btn btn-sm btn-secondary" style="grid-column: span 2;">移頻引擎：標準 JS</button>
+                        
+                        <!-- 🌟 引擎模式與麥克風輸入選擇區塊 🌟 -->
+                        <button id="btnEngineMode" class="btn btn-sm btn-secondary">移頻引擎：標準 JS</button>
+                        <select id="selInputMode" class="btn btn-sm btn-secondary" style="text-align: center; appearance: none; font-weight: bold;">
+                            <option value="default" selected>🎤輸入：系統預設</option>
+                        </select>
                     </div>
 
                     <div class="control-group">
@@ -169,7 +173,7 @@
                     </div>
                 </div>
 
-                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.17</p>
+                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.19</p>
             </div>
 
             <!-- ========================================== -->
@@ -274,9 +278,12 @@
                                 <button id="btnAnaHardwareNoise" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">降噪：關</button>
                                 <button id="btnAnaToggleOutput" class="btn btn-success" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">🔊播放輸出: 開</button>
                             </div>
-                            <!-- 🌟 新增：引擎模式切換 🌟 -->
+                            <!-- 🌟 新增：引擎模式切換與麥克風輸入選擇 🌟 -->
                             <div style="display: flex; gap: 5px; align-items: center; width: 100%;">
                                 <button id="btnAnaEngineMode" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">移頻引擎：標準 JS</button>
+                                <select id="selAnaInputMode" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; text-align: center; appearance: none; font-weight: bold;">
+                                    <option value="default" selected>🎤輸入：系統預設</option>
+                                </select>
                             </div>
                         </div>
                         <div class="ana-divider"></div>
@@ -409,14 +416,13 @@
                         this.pitchRatio = Math.max(0.1, Math.min(e.data.pitchRatio, 4.0));
                     }
                     if (e.data.wasmModule) {
-                        // 範例：若真實傳入 compiled wasm module，在此初始化
-                        // WebAssembly.instantiate(e.data.wasmModule).then(...)
+                        // 若真實傳入 compiled wasm module，在此初始化
                         this.isWasmReady = true;
                     }
                 };
                 
-                // 高品質 4x Overlap-Add Granular Fallback (用以模擬 Phase Vocoder 平滑度)
-                this.grainSize = 8192; // 加大的視窗長度提供更細膩的頻率解析度
+                // 高品質 4x Overlap-Add Granular Fallback (模擬 Phase Vocoder 平滑度)
+                this.grainSize = 8192; 
                 this.overlap = 4;
                 this.bufferSize = this.grainSize * 4; 
                 this.buffer = new Float32Array(this.bufferSize);
@@ -429,8 +435,7 @@
                 if (!input || !output) return true;
                 
                 if (this.isWasmReady) {
-                    // 若有真實掛載的 WASM 模組，可在此呼叫其 _process()
-                    // return true;
+                    // 若有真實掛載的 WASM 模組，呼叫其 _process()
                 }
 
                 // 啟動高品質 Fallback 演算法
@@ -455,7 +460,7 @@
                         outSample += this.buffer[Math.floor(readPos)] * win;
                     }
                     
-                    output[i] = outSample / (this.overlap * 0.375); // 正規化增益補償
+                    output[i] = outSample / (this.overlap * 0.375); 
                     
                     this.writePos = (this.writePos + 1) % this.bufferSize;
                 }
@@ -464,6 +469,88 @@
         }
         registerProcessor('wasm-phase-vocoder-processor', WasmPhaseVocoderProcessor);
         `;
+
+        /* ========================================== */
+        /* --- Utils: Hardware Audio Input Enum ---   */
+        /* ========================================== */
+        let audioInputDevices = [];
+        let selectedInputId = 'default';
+
+        async function fetchAudioInputs() {
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                audioInputDevices = devices.filter(d => d.kind === 'audioinput');
+                renderInputSelects();
+            } catch (e) {
+                console.warn('無法列舉音訊輸入設備:', e);
+            }
+        }
+
+        function renderInputSelects() {
+            const selects = [
+                { el: document.getElementById('selInputMode'), type: 'home' },
+                { el: document.getElementById('selAnaInputMode'), type: 'ana' }
+            ];
+            
+            selects.forEach(({el, type}) => {
+                if (!el) return;
+                el.innerHTML = '<option value="default">🎤輸入：系統預設</option>';
+                
+                audioInputDevices.forEach((device, index) => {
+                    // 若無授權，label 為空，先給予暫定名稱
+                    const label = device.label || `外接裝置/麥克風 ${index + 1}`;
+                    if (device.deviceId && device.deviceId !== 'default' && device.deviceId !== 'communications') {
+                        const opt = document.createElement('option');
+                        opt.value = device.deviceId;
+                        opt.textContent = `🎤輸入：${label}`;
+                        el.appendChild(opt);
+                    }
+                });
+                
+                // 恢復先前的選擇 (如果該設備還存在的話)
+                if (Array.from(el.options).some(o => o.value === selectedInputId)) {
+                    el.value = selectedInputId;
+                } else {
+                    el.value = 'default';
+                }
+                
+                // UI 顏色更新
+                if (type === 'home') {
+                    el.className = el.value === 'default' ? 'btn btn-sm btn-secondary' : 'btn btn-sm btn-info';
+                } else {
+                    el.className = el.value === 'default' ? 'btn btn-secondary' : 'btn btn-info';
+                }
+            });
+        }
+
+        function handleInputDeviceChange(e) {
+            selectedInputId = e.target.value;
+            renderInputSelects(); // 同步兩邊的選單
+            
+            // 如果正在收音，無縫重新啟動串流以套用新設備
+            if (isRecording) {
+                document.getElementById('btnToggleRecord').click(); // 停止
+                setTimeout(() => document.getElementById('btnToggleRecord').click(), 300); // 啟動
+            }
+            if (ana_isPlaying && ana_mediaStream) { // 確認是麥克風收音而不是檔案播放
+                document.getElementById('btnAnaToggleRecord').click();
+                setTimeout(() => document.getElementById('btnAnaToggleRecord').click(), 300);
+            }
+            
+            markConfigChanged();
+            if (typeof ana_markConfigChanged === 'function') ana_markConfigChanged();
+        }
+
+        // 綁定事件：當有設備插拔時自動更新選單
+        if (navigator.mediaDevices && navigator.mediaDevices.ondevicechange !== undefined) {
+            navigator.mediaDevices.addEventListener('devicechange', fetchAudioInputs);
+        }
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchAudioInputs();
+            document.getElementById('selInputMode').addEventListener('change', handleInputDeviceChange);
+            document.getElementById('selAnaInputMode').addEventListener('change', handleInputDeviceChange);
+        });
 
         /* ========================================== */
         /* --- Utils: Toast & Dialog ---              */
@@ -496,7 +583,7 @@
         });
 
         /* ========================================== */
-        /* --- Utils: Tab Switching & Orientation --- */
+        /* --- Utils: Tab Switching ---               */
         /* ========================================== */
         function triggerCanvasResize() {
             setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 50);
@@ -649,7 +736,6 @@
                     const hpBand = context.createBiquadFilter(); hpBand.type = 'highpass'; hpBand.frequency.value = fStart;
                     const lpBand = context.createBiquadFilter(); lpBand.type = 'lowpass'; lpBand.frequency.value = fEnd;
 
-                    // 🌟 根據引擎選擇初始化對應的處理器 🌟
                     const processorName = isWasmEngine ? 'wasm-phase-vocoder-processor' : 'pitch-shift-processor';
                     const pitchShifter = new AudioWorkletNode(context, processorName);
                     pitchShifter.port.postMessage({ pitchRatio: targetRatio });
@@ -991,7 +1077,7 @@
             return {
                 isSoftwareNoiseOn, isScreenWakeOn, isHardwareNoiseOn, isBackgroundKeepOn,
                 volume: document.getElementById('volumeSlider').value,
-                isMaxVol10, isWasmEngineOn, bands
+                isMaxVol10, isWasmEngineOn, selectedInputId, bands
             };
         }
 
@@ -1163,23 +1249,23 @@
         async function applySettings(config) {
             isApplyingConfig = true; 
 
-            isSoftwareNoiseOn = config.isSoftwareNoiseOn;
+            isSoftwareNoiseOn = config.isSoftwareNoiseOn || false;
             document.getElementById('btnSoftwareNoise').textContent = isSoftwareNoiseOn ? '人聲降噪：開' : '人聲降噪：關';
             document.getElementById('btnSoftwareNoise').className = isSoftwareNoiseOn ? 'btn btn-sm btn-success' : 'btn btn-sm btn-secondary';
 
-            isHardwareNoiseOn = config.isHardwareNoiseOn;
+            isHardwareNoiseOn = config.isHardwareNoiseOn || false;
             document.getElementById('btnHardwareNoise').textContent = isHardwareNoiseOn ? '降噪：開' : '降噪：關';
             document.getElementById('btnHardwareNoise').className = isHardwareNoiseOn ? 'btn btn-sm btn-success' : 'btn btn-sm btn-secondary';
 
-            isBackgroundKeepOn = config.isBackgroundKeepOn;
+            isBackgroundKeepOn = config.isBackgroundKeepOn || false;
             document.getElementById('btnBackgroundKeep').textContent = isBackgroundKeepOn ? '防休眠(背景執行)：開' : '防休眠(背景執行)：關';
             document.getElementById('btnBackgroundKeep').className = isBackgroundKeepOn ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-secondary';
 
-            isScreenWakeOn = config.isScreenWakeOn;
+            isScreenWakeOn = config.isScreenWakeOn || false;
             document.getElementById('btnScreenWake').textContent = isScreenWakeOn ? '螢幕常亮(防暫停)：開' : '螢幕常亮(防暫停)：關';
             document.getElementById('btnScreenWake').className = isScreenWakeOn ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-secondary';
 
-            isMaxVol10 = config.isMaxVol10;
+            isMaxVol10 = config.isMaxVol10 || false;
             document.getElementById('volumeSlider').max = isMaxVol10 ? 10 : 5;
             document.getElementById('btnToggleMaxVol').textContent = isMaxVol10 ? '上限切換: 10x' : '上限切換: 5x';
             document.getElementById('btnToggleMaxVol').className = isMaxVol10 ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-secondary';
@@ -1189,8 +1275,11 @@
             btnEngine.textContent = isWasmEngineOn ? '移頻引擎：專業 WASM' : '移頻引擎：標準 JS';
             btnEngine.className = isWasmEngineOn ? 'btn btn-sm btn-info' : 'btn btn-sm btn-secondary';
 
-            document.getElementById('volumeSlider').value = config.volume;
-            document.getElementById('volumeValue').textContent = Number(config.volume).toFixed(1);
+            selectedInputId = config.selectedInputId || 'default';
+            renderInputSelects();
+
+            document.getElementById('volumeSlider').value = config.volume || 1.0;
+            document.getElementById('volumeValue').textContent = Number(document.getElementById('volumeSlider').value).toFixed(1);
 
             const bandsContainer = document.getElementById('bandsContainer');
             bandsContainer.innerHTML = '';
@@ -1347,6 +1436,7 @@
             const row = document.getElementById(`band-${id}`);
             if (row) { row.remove(); rebuildAudioPipeline(); markConfigChanged(); }
         }
+        
         document.getElementById('btnToggleRecord').addEventListener('click', async () => {
             if (!isRecording) {
                 try {
@@ -1356,8 +1446,18 @@
                         await audioContext.audioWorklet.addModule(URL.createObjectURL(blob));
                         audioContext.audioWorkletModuleLoaded = true;
                     }
-                    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: isHardwareNoiseOn, autoGainControl: false } });
+                    
+                    const constraints = { echoCancellation: false, noiseSuppression: isHardwareNoiseOn, autoGainControl: false };
+                    if (selectedInputId && selectedInputId !== 'default') {
+                        constraints.deviceId = { exact: selectedInputId };
+                    }
+                    
+                    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
                     sourceNode = audioContext.createMediaStreamSource(mediaStream);
+                    
+                    // 獲取授權後，重新讀取裝置標籤名稱
+                    fetchAudioInputs();
+                    
                     rebuildAudioPipeline(); 
                     mainSpecRef.ctx = audioContext; mainSpecRef.inAna = inputAnalyser; mainSpecRef.outAna = outputAnalyser;
                     startSpectrumAnimation('spectrumCanvas', mainSpecRef); 
@@ -1501,7 +1601,8 @@
                 isSoftwareNoiseOn: ana_isSoftwareNoiseOn, isScreenWakeOn: false,
                 isHardwareNoiseOn: ana_isHardwareNoiseOn, isBackgroundKeepOn: false,
                 volume: document.getElementById('anaVolumeSlider').value,
-                isMaxVol10: ana_isMaxVol10, isWasmEngineOn: ana_isWasmEngineOn, bands: bands
+                isMaxVol10: ana_isMaxVol10, isWasmEngineOn: ana_isWasmEngineOn,
+                selectedInputId: selectedInputId, bands: bands
             };
         }
 
@@ -1549,6 +1650,9 @@
             const btnAnaEngine = document.getElementById('btnAnaEngineMode');
             btnAnaEngine.textContent = ana_isWasmEngineOn ? '移頻引擎：專業 WASM' : '移頻引擎：標準 JS';
             btnAnaEngine.className = ana_isWasmEngineOn ? 'btn btn-info' : 'btn btn-secondary';
+
+            selectedInputId = config.selectedInputId || 'default';
+            renderInputSelects();
 
             document.getElementById('anaVolumeSlider').value = config.volume || 1.0;
             document.getElementById('anaVolumeValue').textContent = Number(document.getElementById('anaVolumeSlider').value).toFixed(1);
@@ -1632,6 +1736,7 @@
             btn.className = ana_isMuted ? 'btn btn-secondary' : 'btn btn-success';
             if (ana_muteNode) ana_muteNode.gain.value = ana_isMuted ? 0 : 1;
         });
+
         document.getElementById('btnAnaEngineMode').addEventListener('click', () => {
             ana_isWasmEngineOn = !ana_isWasmEngineOn;
             const btn = document.getElementById('btnAnaEngineMode');
@@ -1699,8 +1804,17 @@
             if (!ana_isPlaying) {
                 try {
                     await initAnaContext();
-                    ana_mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: ana_isHardwareNoiseOn, autoGainControl: false } });
+                    
+                    const constraints = { echoCancellation: false, noiseSuppression: ana_isHardwareNoiseOn, autoGainControl: false };
+                    if (selectedInputId && selectedInputId !== 'default') {
+                        constraints.deviceId = { exact: selectedInputId };
+                    }
+                    
+                    ana_mediaStream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
                     ana_sourceNode = ana_audioCtx.createMediaStreamSource(ana_mediaStream);
+                    
+                    // 獲取授權後，重新讀取裝置標籤名稱
+                    fetchAudioInputs();
                     
                     ana_rebuildAudioPipeline(); 
                     anaSpecRef.ctx = ana_audioCtx; anaSpecRef.inAna = ana_inputAnalyser; anaSpecRef.outAna = ana_outputAnalyser;
