@@ -2,7 +2,6 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <!-- 加入 viewport-fit=cover 以支援 iOS PWA 安全區域 (Safe Area) -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>進階即時擴音器與音頻檢測 PWA</title>
     <link rel="manifest" href="manifest.json">
@@ -13,7 +12,7 @@
             background-color: #f5f5f7; 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
             width: 100%; height: 100%; 
-            overflow: hidden; /* 防止整個網頁的橡皮筋拉扯與溢位 */
+            overflow: hidden; 
         }
         
         /* --- 預設 (直立/一般) 版面佈局 --- */
@@ -23,7 +22,6 @@
             width: 100%; 
             height: 100%; 
             box-sizing: border-box;
-            /* iOS Safe Area 完美避開瀏海、時間電池與底線 */
             padding-top: env(safe-area-inset-top, 0px);
             padding-bottom: env(safe-area-inset-bottom, 0px);
             padding-left: env(safe-area-inset-left, 0px);
@@ -33,7 +31,7 @@
         .tab-nav { 
             display: flex; flex-direction: row; 
             border-bottom: 2px solid #ccc; background: #f5f5f7; z-index: 50; 
-            flex-shrink: 0; /* 防止導覽列被擠壓 */
+            flex-shrink: 0; 
         }
         .tab-btn { flex: 1; padding: 15px 5px; background: none; border: none; font-size: 16px; cursor: pointer; outline: none; border-bottom: 3px solid transparent; color: #555; transition: all 0.2s; white-space: nowrap; writing-mode: horizontal-tb; text-align: center; }
         .tab-btn.active { font-weight: bold; border-bottom: 3px solid #007bff; color: #007bff; }
@@ -42,7 +40,7 @@
             flex-grow: 1; 
             padding: 20px; 
             box-sizing: border-box; 
-            overflow-y: auto; /* 只有內容區可以上下捲動 */
+            overflow-y: auto; 
             -webkit-overflow-scrolling: touch;
         }
         
@@ -51,7 +49,7 @@
         body.analysis-mode .tab-nav { flex-direction: column; width: 60px; border-bottom: none; border-right: 2px solid #ccc; padding-top: 10px; background: #fff; }
         body.analysis-mode .tab-btn { writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 4px; padding: 10px 0; margin: 5px auto; border-bottom: none; border-left: 3px solid transparent; max-height: 150px; }
         body.analysis-mode .tab-btn.active { border-left: 4px solid #007bff; border-bottom: none; background-color: #f0f8ff; }
-        body.analysis-mode .content-area { padding: 0; overflow: hidden; /* 聲音分析圖不需捲動 */ }
+        body.analysis-mode .content-area { padding: 0; overflow: hidden; }
 
         /* --- 區塊顯示邏輯 --- */
         .tab-content { display: none; }
@@ -202,7 +200,7 @@
                     </div>
                 </div>
 
-                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.20</p>
+                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.21</p>
             </div>
 
             <!-- ========================================== -->
@@ -287,7 +285,7 @@
             <!-- ========================================== -->
             <!-- 區塊 3：聲音分析 (新版全螢幕儀表板)           -->
             <!-- ========================================== -->
-            <div id="audio-analysis" class="tab-content" style="padding: 0; height: 100vh; position: relative;">
+            <div id="audio-analysis" class="tab-content" style="padding: 0; height: 100vh; overflow: hidden; position: relative;">
                 
                 <!-- 頂部懸浮控制橫幅 (Overlay) -->
                 <div id="anaOverlayWrapper" class="">
@@ -803,6 +801,7 @@
             ctx.fillStyle = '#aaa';
             ctx.font = '11px sans-serif';
 
+            // Y Axis
             ctx.textAlign = 'right';
             ctx.textBaseline = 'middle';
             const yTicks = [0, -20, -40, -60, -80, -100];
@@ -813,6 +812,7 @@
                 ctx.fillText(db === 0 ? '0 dB' : db.toString(), pad.l - 5, y);
             });
 
+            // X Axis
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
             
@@ -834,6 +834,7 @@
                 ctx.fillText(label, x, pad.t + gH + 8);
             }
 
+            // 安全線 (-12dB)
             const safeDb = -12;
             const safePercent = (safeDb - (-100)) / 100;
             const safeY = pad.t + gH * (1 - safePercent);
@@ -1311,16 +1312,18 @@
             isApplyingConfig = false; 
         }
 
+        // 🌟 修復 1：為所有 disconnect 加入 try-catch 防護網
         function rebuildAudioPipeline() {
             if (!audioContext || !sourceNode) return; 
-            sourceNode.disconnect();
-            if (masterGainNode) masterGainNode.disconnect();
-            if (noiseFilterHighpass) noiseFilterHighpass.disconnect();
-            if (noiseFilterLowpass) noiseFilterLowpass.disconnect();
-            if (inputAnalyser) inputAnalyser.disconnect();
-            if (outputAnalyser) outputAnalyser.disconnect();
-            eqFilterNodes.forEach(node => node.disconnect());
-            pitchShifterNodes.forEach(node => node.disconnect());
+            
+            try { sourceNode.disconnect(); } catch(e){}
+            if (masterGainNode) try { masterGainNode.disconnect(); } catch(e){}
+            if (noiseFilterHighpass) try { noiseFilterHighpass.disconnect(); } catch(e){}
+            if (noiseFilterLowpass) try { noiseFilterLowpass.disconnect(); } catch(e){}
+            if (inputAnalyser) try { inputAnalyser.disconnect(); } catch(e){}
+            if (outputAnalyser) try { outputAnalyser.disconnect(); } catch(e){}
+            eqFilterNodes.forEach(node => { try { node.disconnect(); } catch(e){} });
+            pitchShifterNodes.forEach(node => { try { node.disconnect(); } catch(e){} });
             
             const pipeline = setupAudioPipeline(audioContext, sourceNode, document.getElementById('volumeSlider').value, '#amplifier .band-row', isSoftwareNoiseOn, null, isWasmEngineOn);
             inputAnalyser = pipeline.inAnalyser;
@@ -1684,16 +1687,18 @@
             ana_rebuildAudioPipeline();
         }
 
+        // 🌟 修復 2：為 Analysis 的所有 disconnect 加入 try-catch 防護網
         function ana_rebuildAudioPipeline() {
             if (!ana_audioCtx || !ana_sourceNode) return; 
-            ana_sourceNode.disconnect();
-            if (ana_inputAnalyser) ana_inputAnalyser.disconnect();
-            if (ana_outputAnalyser) ana_outputAnalyser.disconnect();
-            if (ana_muteNode) ana_muteNode.disconnect();
-            ana_eqNodes.forEach(node => node.disconnect());
-            ana_pitchNodes.forEach(node => node.disconnect());
             
-            const pipeline = setupAudioPipeline(ana_audioCtx, ana_sourceNode, document.getElementById('anaVolumeSlider').value, '#anaBandsContainer .ana-band-row', ana_isSoftwareNoiseOn, ana_isMuted, ana_isWasmEngineOn);
+            try { ana_sourceNode.disconnect(); } catch(e){}
+            if (ana_inputAnalyser) try { ana_inputAnalyser.disconnect(); } catch(e){}
+            if (ana_outputAnalyser) try { ana_outputAnalyser.disconnect(); } catch(e){}
+            if (ana_muteNode) try { ana_muteNode.disconnect(); } catch(e){}
+            ana_eqNodes.forEach(node => { try { node.disconnect(); } catch(e){} });
+            ana_pitchNodes.forEach(node => { try { node.disconnect(); } catch(e){} });
+            
+            const pipeline = setupAudioPipeline(ana_audioCtx, ana_sourceNode, document.getElementById('anaVolumeSlider').value, '#anaBandsContainer .ana-band-row', ana_isSoftwareNoiseOn, ana_isMuted ? 'off' : 'default', ana_isWasmEngineOn);
             ana_inputAnalyser = pipeline.inAnalyser;
             ana_outputAnalyser = pipeline.outAnalyser;
             ana_eqNodes = pipeline.eqNodes;
@@ -1845,39 +1850,45 @@
             const file = e.target.files[0];
             if (!file) return;
             
-            // 🔥 解法 1: 緊握 User Gesture 同步執行 Play 🔥
-            if (ana_audioElement) {
-                ana_audioElement.pause();
-                ana_audioElement.removeAttribute('src');
-            }
-            ana_audioElement = document.createElement('video');
-            ana_audioElement.playsInline = true;
-            ana_audioElement.crossOrigin = "anonymous";
-            ana_audioElement.src = URL.createObjectURL(file);
-            
-            const playPromise = ana_audioElement.play();
-            if (playPromise !== undefined) playPromise.catch(err => console.warn(err));
-            
-            // 執行完 play 之後，才進入非同步環境載入引擎
-            await initAnaContext();
-            
-            try { ana_sourceNode = ana_audioCtx.createMediaElementSource(ana_audioElement); } 
-            catch(err) { console.error(err); }
-            
-            ana_audioElement.loop = true; 
-            ana_rebuildAudioPipeline();
-            
-            anaSpecRef.ctx = ana_audioCtx; 
-            anaSpecRef.inAna = ana_inputAnalyser; 
-            anaSpecRef.outAna = ana_outputAnalyser;
-            startSpectrumAnimation('anaSpectrumCanvas', anaSpecRef);
+            try {
+                if (ana_audioElement) {
+                    ana_audioElement.pause();
+                    ana_audioElement.removeAttribute('src');
+                    ana_audioElement.load();
+                }
+                
+                ana_audioElement = document.createElement('video');
+                ana_audioElement.playsInline = true;
+                ana_audioElement.crossOrigin = "anonymous";
+                ana_audioElement.src = URL.createObjectURL(file);
+                
+                // 緊握使用者的操作手勢，立刻請求播放
+                const playPromise = ana_audioElement.play();
+                if (playPromise !== undefined) playPromise.catch(err => console.warn('Play init warning:', err));
+                
+                // 等待引擎準備好
+                await initAnaContext();
+                
+                try { ana_sourceNode = ana_audioCtx.createMediaElementSource(ana_audioElement); } 
+                catch(err) { console.error('MediaSource Error:', err); }
+                
+                ana_audioElement.loop = true; 
+                ana_rebuildAudioPipeline();
+                
+                anaSpecRef.ctx = ana_audioCtx; 
+                anaSpecRef.inAna = ana_inputAnalyser; 
+                anaSpecRef.outAna = ana_outputAnalyser;
+                startSpectrumAnimation('anaSpectrumCanvas', anaSpecRef);
 
-            document.getElementById('btnAnaImportFile').innerHTML = '■<br>停止播放';
-            document.getElementById('btnAnaImportFile').className = 'btn btn-danger btn-square';
-            ana_isPlaying = true;
-            
-            // 清除 input，確保同一個檔案可以重複選取
-            e.target.value = '';
+                document.getElementById('btnAnaImportFile').innerHTML = '■<br>停止播放';
+                document.getElementById('btnAnaImportFile').className = 'btn btn-danger btn-square';
+                ana_isPlaying = true;
+                
+            } catch (err) {
+                console.error("匯入檔案執行錯誤:", err);
+            } finally {
+                e.target.value = ''; // 確保可重複選擇同一檔案
+            }
         });
 
         /* --- Analysis Config Management --- */
