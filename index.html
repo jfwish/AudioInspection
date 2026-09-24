@@ -2,31 +2,60 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- 加入 viewport-fit=cover 以支援 iOS PWA 安全區域 (Safe Area) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>進階即時擴音器與音頻檢測 PWA</title>
     <link rel="manifest" href="manifest.json">
     <style>
-        /* --- 基礎重置 --- */
-        body, html { margin: 0; padding: 0; background-color: #f5f5f7; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        /* --- 基礎重置與 iOS 滿版鎖定 --- */
+        body, html { 
+            margin: 0; padding: 0; 
+            background-color: #f5f5f7; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            width: 100%; height: 100%; 
+            overflow: hidden; /* 防止整個網頁的橡皮筋拉扯與溢位 */
+        }
         
         /* --- 預設 (直立/一般) 版面佈局 --- */
-        .app-container { display: flex; flex-direction: column; width: 100vw; min-height: 100vh; overflow: auto; }
-        .tab-nav { display: flex; flex-direction: row; border-bottom: 2px solid #ccc; background: #f5f5f7; z-index: 50; }
+        .app-container { 
+            display: flex; 
+            flex-direction: column; 
+            width: 100%; 
+            height: 100%; 
+            box-sizing: border-box;
+            /* iOS Safe Area 完美避開瀏海、時間電池與底線 */
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+            padding-left: env(safe-area-inset-left, 0px);
+            padding-right: env(safe-area-inset-right, 0px);
+        }
+
+        .tab-nav { 
+            display: flex; flex-direction: row; 
+            border-bottom: 2px solid #ccc; background: #f5f5f7; z-index: 50; 
+            flex-shrink: 0; /* 防止導覽列被擠壓 */
+        }
         .tab-btn { flex: 1; padding: 15px 5px; background: none; border: none; font-size: 16px; cursor: pointer; outline: none; border-bottom: 3px solid transparent; color: #555; transition: all 0.2s; white-space: nowrap; writing-mode: horizontal-tb; text-align: center; }
         .tab-btn.active { font-weight: bold; border-bottom: 3px solid #007bff; color: #007bff; }
-        .content-area { flex-grow: 1; padding: 20px; box-sizing: border-box; overflow-y: visible; }
+        
+        .content-area { 
+            flex-grow: 1; 
+            padding: 20px; 
+            box-sizing: border-box; 
+            overflow-y: auto; /* 只有內容區可以上下捲動 */
+            -webkit-overflow-scrolling: touch;
+        }
         
         /* --- 聲音分析 (水平) 版面切換模式 --- */
-        body.analysis-mode { overflow: hidden; height: 100vh; }
-        body.analysis-mode .app-container { flex-direction: row; height: 100vh; overflow: hidden; }
+        body.analysis-mode .app-container { flex-direction: row; }
         body.analysis-mode .tab-nav { flex-direction: column; width: 60px; border-bottom: none; border-right: 2px solid #ccc; padding-top: 10px; background: #fff; }
         body.analysis-mode .tab-btn { writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 4px; padding: 10px 0; margin: 5px auto; border-bottom: none; border-left: 3px solid transparent; max-height: 150px; }
         body.analysis-mode .tab-btn.active { border-left: 4px solid #007bff; border-bottom: none; background-color: #f0f8ff; }
-        body.analysis-mode .content-area { padding: 0; height: 100vh; overflow-y: auto; overflow-x: hidden; }
+        body.analysis-mode .content-area { padding: 0; overflow: hidden; /* 聲音分析圖不需捲動 */ }
 
         /* --- 區塊顯示邏輯 --- */
         .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        .tab-content.active { display: block; height: 100%; }
 
         /* --- UI 卡片與共用按鈕樣式 --- */
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
@@ -173,7 +202,7 @@
                     </div>
                 </div>
 
-                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.19</p>
+                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.20</p>
             </div>
 
             <!-- ========================================== -->
@@ -258,7 +287,7 @@
             <!-- ========================================== -->
             <!-- 區塊 3：聲音分析 (新版全螢幕儀表板)           -->
             <!-- ========================================== -->
-            <div id="audio-analysis" class="tab-content" style="padding: 0; height: 100vh; overflow: hidden; position: relative;">
+            <div id="audio-analysis" class="tab-content" style="padding: 0; height: 100vh; position: relative;">
                 
                 <!-- 頂部懸浮控制橫幅 (Overlay) -->
                 <div id="anaOverlayWrapper" class="">
@@ -272,7 +301,6 @@
                             </div>
                             <input type="range" id="anaVolumeSlider" min="0" max="5" step="0.1" value="1.0" style="margin:0; width: 100%;">
                             
-                            <!-- 三個功能按鈕：統一尺寸 (height: 28px)，平分寬度 -->
                             <div style="display: flex; gap: 5px; align-items: center; width: 100%;">
                                 <button id="btnAnaSoftwareNoise" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">人聲降噪：關</button>
                                 <button id="btnAnaHardwareNoise" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">降噪：關</button>
@@ -410,18 +438,15 @@
                 this.pitchRatio = 1.0;
                 this.isWasmReady = false;
                 
-                // WASM 架構通訊介面
                 this.port.onmessage = (e) => {
                     if (e.data.pitchRatio !== undefined) {
                         this.pitchRatio = Math.max(0.1, Math.min(e.data.pitchRatio, 4.0));
                     }
                     if (e.data.wasmModule) {
-                        // 若真實傳入 compiled wasm module，在此初始化
                         this.isWasmReady = true;
                     }
                 };
                 
-                // 高品質 4x Overlap-Add Granular Fallback (模擬 Phase Vocoder 平滑度)
                 this.grainSize = 8192; 
                 this.overlap = 4;
                 this.bufferSize = this.grainSize * 4; 
@@ -434,11 +459,8 @@
                 const output = outputs[0][0];
                 if (!input || !output) return true;
                 
-                if (this.isWasmReady) {
-                    // 若有真實掛載的 WASM 模組，呼叫其 _process()
-                }
+                if (this.isWasmReady) { }
 
-                // 啟動高品質 Fallback 演算法
                 const rate = (1.0 - this.pitchRatio) / this.grainSize;
 
                 for (let i = 0; i < input.length; i++) {
@@ -455,13 +477,11 @@
                         let readPos = this.writePos - delay;
                         if (readPos < 0) readPos += this.bufferSize;
                         
-                        // Hanning Window
                         let win = 0.5 - 0.5 * Math.cos(2 * Math.PI * p);
                         outSample += this.buffer[Math.floor(readPos)] * win;
                     }
                     
                     output[i] = outSample / (this.overlap * 0.375); 
-                    
                     this.writePos = (this.writePos + 1) % this.bufferSize;
                 }
                 return true;
@@ -498,7 +518,6 @@
                 el.innerHTML = '<option value="default">🎤輸入：系統預設</option>';
                 
                 audioInputDevices.forEach((device, index) => {
-                    // 若無授權，label 為空，先給予暫定名稱
                     const label = device.label || `外接裝置/麥克風 ${index + 1}`;
                     if (device.deviceId && device.deviceId !== 'default' && device.deviceId !== 'communications') {
                         const opt = document.createElement('option');
@@ -508,14 +527,12 @@
                     }
                 });
                 
-                // 恢復先前的選擇 (如果該設備還存在的話)
                 if (Array.from(el.options).some(o => o.value === selectedInputId)) {
                     el.value = selectedInputId;
                 } else {
                     el.value = 'default';
                 }
                 
-                // UI 顏色更新
                 if (type === 'home') {
                     el.className = el.value === 'default' ? 'btn btn-sm btn-secondary' : 'btn btn-sm btn-info';
                 } else {
@@ -526,14 +543,13 @@
 
         function handleInputDeviceChange(e) {
             selectedInputId = e.target.value;
-            renderInputSelects(); // 同步兩邊的選單
+            renderInputSelects(); 
             
-            // 如果正在收音，無縫重新啟動串流以套用新設備
             if (isRecording) {
-                document.getElementById('btnToggleRecord').click(); // 停止
-                setTimeout(() => document.getElementById('btnToggleRecord').click(), 300); // 啟動
+                document.getElementById('btnToggleRecord').click(); 
+                setTimeout(() => document.getElementById('btnToggleRecord').click(), 300); 
             }
-            if (ana_isPlaying && ana_mediaStream) { // 確認是麥克風收音而不是檔案播放
+            if (ana_isPlaying && ana_mediaStream) { 
                 document.getElementById('btnAnaToggleRecord').click();
                 setTimeout(() => document.getElementById('btnAnaToggleRecord').click(), 300);
             }
@@ -542,7 +558,6 @@
             if (typeof ana_markConfigChanged === 'function') ana_markConfigChanged();
         }
 
-        // 綁定事件：當有設備插拔時自動更新選單
         if (navigator.mediaDevices && navigator.mediaDevices.ondevicechange !== undefined) {
             navigator.mediaDevices.addEventListener('devicechange', fetchAudioInputs);
         }
@@ -613,10 +628,11 @@
         /* --- Global App Event Resizer ---           */
         /* ========================================== */
         window.addEventListener('resize', () => {
-            const c1 = document.getElementById('spectrumCanvas');
-            if(c1) { c1.width = c1.clientWidth; c1.height = c1.clientHeight; }
-            const c2 = document.getElementById('anaSpectrumCanvas');
-            if(c2) { c2.width = c2.clientWidth; c2.height = c2.clientHeight; }
+            triggerCanvasResize();
+        });
+        window.addEventListener('orientationchange', () => {
+            setTimeout(triggerCanvasResize, 100);
+            setTimeout(triggerCanvasResize, 300);
         });
 
         /* ========================================== */
@@ -787,7 +803,6 @@
             ctx.fillStyle = '#aaa';
             ctx.font = '11px sans-serif';
 
-            // Y Axis
             ctx.textAlign = 'right';
             ctx.textBaseline = 'middle';
             const yTicks = [0, -20, -40, -60, -80, -100];
@@ -798,7 +813,6 @@
                 ctx.fillText(db === 0 ? '0 dB' : db.toString(), pad.l - 5, y);
             });
 
-            // X Axis
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
             
@@ -820,7 +834,6 @@
                 ctx.fillText(label, x, pad.t + gH + 8);
             }
 
-            // 安全線 (-12dB)
             const safeDb = -12;
             const safePercent = (safeDb - (-100)) / 100;
             const safeY = pad.t + gH * (1 - safePercent);
@@ -1455,7 +1468,6 @@
                     mediaStream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
                     sourceNode = audioContext.createMediaStreamSource(mediaStream);
                     
-                    // 獲取授權後，重新讀取裝置標籤名稱
                     fetchAudioInputs();
                     
                     rebuildAudioPipeline(); 
@@ -1736,7 +1748,6 @@
             btn.className = ana_isMuted ? 'btn btn-secondary' : 'btn btn-success';
             if (ana_muteNode) ana_muteNode.gain.value = ana_isMuted ? 0 : 1;
         });
-
         document.getElementById('btnAnaEngineMode').addEventListener('click', () => {
             ana_isWasmEngineOn = !ana_isWasmEngineOn;
             const btn = document.getElementById('btnAnaEngineMode');
@@ -1813,7 +1824,6 @@
                     ana_mediaStream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
                     ana_sourceNode = ana_audioCtx.createMediaStreamSource(ana_mediaStream);
                     
-                    // 獲取授權後，重新讀取裝置標籤名稱
                     fetchAudioInputs();
                     
                     ana_rebuildAudioPipeline(); 
@@ -1835,8 +1845,7 @@
             const file = e.target.files[0];
             if (!file) return;
             
-            await initAnaContext();
-            
+            // 🔥 解法 1: 緊握 User Gesture 同步執行 Play 🔥
             if (ana_audioElement) {
                 ana_audioElement.pause();
                 ana_audioElement.removeAttribute('src');
@@ -1848,6 +1857,9 @@
             
             const playPromise = ana_audioElement.play();
             if (playPromise !== undefined) playPromise.catch(err => console.warn(err));
+            
+            // 執行完 play 之後，才進入非同步環境載入引擎
+            await initAnaContext();
             
             try { ana_sourceNode = ana_audioCtx.createMediaElementSource(ana_audioElement); } 
             catch(err) { console.error(err); }
@@ -1863,6 +1875,9 @@
             document.getElementById('btnAnaImportFile').innerHTML = '■<br>停止播放';
             document.getElementById('btnAnaImportFile').className = 'btn btn-danger btn-square';
             ana_isPlaying = true;
+            
+            // 清除 input，確保同一個檔案可以重複選取
+            e.target.value = '';
         });
 
         /* --- Analysis Config Management --- */
