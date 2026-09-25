@@ -110,6 +110,11 @@
         #customDialogOverlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; }
         .custom-dialog { background:#fff; padding:20px; border-radius:12px; display:flex; align-items:center; gap:10px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); flex-wrap: wrap; justify-content: center; max-width: 90%; }
         #toastMsg { display:none; position:fixed; top:20%; left:50%; transform:translate(-50%, -50%); background:rgba(0,0,0,0.8); color:white; padding:12px 24px; border-radius:8px; z-index:10000; font-size:16px; font-weight:bold; }
+        
+        /* --- 除錯器專屬樣式 --- */
+        .debug-panel { background: #222; color: #0f0; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 11px; margin-top: 20px;}
+        .debug-textarea { width: 100%; height: 150px; background: transparent; color: inherit; border: 1px solid #555; outline: none; resize: vertical; margin-bottom: 10px; }
+        .debug-select { background: #333; color: #0f0; border: 1px solid #555; padding: 4px; border-radius: 4px; outline: none; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -151,7 +156,6 @@
                         <button id="btnHardwareNoise" class="btn btn-sm btn-secondary">降噪：關</button>
                         <button id="btnBackgroundKeep" class="btn btn-sm btn-secondary">防休眠(背景執行)：關</button>
                         
-                        <!-- 🌟 引擎模式與麥克風輸入選擇區塊 🌟 -->
                         <button id="btnEngineMode" class="btn btn-sm btn-secondary">移頻引擎：標準 JS</button>
                         <select id="selInputMode" class="btn btn-sm btn-secondary" style="text-align: center; appearance: none; font-weight: bold;">
                             <option value="default" selected>🎤輸入：系統預設</option>
@@ -188,7 +192,6 @@
                         <span style="color: #999;">■ 原始收音 (Input)</span>
                         <span style="color: #007bff;">■ 處理後輸出 (Output)</span>
                     </div>
-                    <!-- 加上 touch-action: none 防止原生滾動干擾 -->
                     <canvas id="spectrumCanvas" width="560" height="340" style="width: 100%; height: 340px; background: #111; border-radius: 8px; box-shadow: inset 0 2px 5px rgba(0,0,0,0.5); touch-action: none;"></canvas>
                 </div>
 
@@ -199,8 +202,32 @@
                         <button id="btnAddBand" class="btn btn-secondary" style="width: 100%;">+ 新增頻段範圍</button>
                     </div>
                 </div>
+                
+                <!-- 🌟 動態 UI 控制版全局日誌面板 🌟 -->
+                <div class="card debug-panel" id="debugPanelUI">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3 style="margin: 0; color: #fff;">🛠️ 系統除錯 (Debug)</h3>
+                        <select id="selDebugLevel" class="debug-select">
+                            <option value="0">0: 關閉 (Off)</option>
+                            <option value="1">1: 僅錯誤 (Err)</option>
+                            <option value="2">2: 一般資訊 (Info)</option>
+                            <option value="3">3: 詳細追蹤 (Verb)</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 隱藏容器：當 Level = 0 時摺疊此區塊 -->
+                    <div id="debugContentWrapper" style="display: none;">
+                        <textarea id="debugTextArea" class="debug-textarea" readonly></textarea>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-sm btn-secondary" onclick="AppLogger.copyToClipboard()">📋 複製</button>
+                            <button class="btn btn-sm btn-info" onclick="AppLogger.shareLog()">📤 分享/匯出檔</button>
+                            <button class="btn btn-sm btn-danger" onclick="AppLogger.clear()">🗑️ 清空</button>
+                        </div>
+                        <p style="color: #888; font-size: 10px; margin-top: 8px; margin-bottom: 0;">註：分享功能可直接將日誌存入 Google Drive、iCloud 或透過 LINE 傳送以達雲端備份效果。</p>
+                    </div>
+                </div>
 
-                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.21</p>
+                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.23</p>
             </div>
 
             <!-- ========================================== -->
@@ -320,7 +347,6 @@
 
                         <!-- C. 匯入音檔 (正方形) -->
                         <button id="btnAnaImportFile" class="btn btn-info btn-square" style="width: 80px; height: 80px; font-size: 14px;">📂<br>匯入音檔</button>
-                        <!-- ⚠️ 擴充 accept 屬性：允許音檔與影片，明確指定副檔名以防 iOS 灰階禁用 -->
                         <input type="file" id="anaFileInput" accept="audio/*, video/*, .mp3, .wav, .m4a, .mp4, .mov" style="display: none;">
                         <div class="ana-divider"></div>
 
@@ -367,6 +393,137 @@
     </div> <!-- app-container -->
 
     <script>
+        /* ========================================================================= */
+        /* 🌟 核心除錯常數與日誌系統 (動態 UI 調整版) 🌟                                  */
+        /* ========================================================================= */
+        
+        let DEBUG_LEVEL = parseInt(localStorage.getItem('pwa_debug_level') || '0', 10);
+
+        const AppLogger = {
+            logs: [],
+            maxLogs: 1000,
+            
+            init() {
+                try {
+                    const saved = localStorage.getItem('pwa_audio_logs');
+                    if (saved) { this.logs = JSON.parse(saved); }
+                } catch(e) {}
+                
+                // 綁定 UI 選擇器並套用初始顯示狀態
+                const sel = document.getElementById('selDebugLevel');
+                if (sel) {
+                    sel.value = DEBUG_LEVEL.toString();
+                    sel.addEventListener('change', (e) => this.setLevel(parseInt(e.target.value, 10)));
+                }
+                this.updateUIVisibility();
+                this.updateText();
+                this.info("System", "AppLogger initialized. Current Debug Level: " + DEBUG_LEVEL);
+            },
+            
+            setLevel(level) {
+                DEBUG_LEVEL = level;
+                localStorage.setItem('pwa_debug_level', level.toString());
+                this.updateUIVisibility();
+                this.info("System", "Debug Level changed to: " + level);
+            },
+            
+            updateUIVisibility() {
+                const wrapper = document.getElementById('debugContentWrapper');
+                if (wrapper) {
+                    // 若等級為 0 (關閉)，則瞬間摺疊隱藏下半部內容
+                    wrapper.style.display = DEBUG_LEVEL === 0 ? 'none' : 'block';
+                }
+            },
+            
+            _log(level, type, tag, msg, data) {
+                if (level > DEBUG_LEVEL) return;
+                
+                const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: "numeric", minute: "numeric", second: "numeric", fractionalSecondDigits: 3 });
+                let logStr = `[${time}] [${type}] [${tag}] ${msg}`;
+                if (data !== undefined) {
+                    try { logStr += " | " + (typeof data === 'object' ? JSON.stringify(data) : String(data)); } 
+                    catch(e) { logStr += " | [Unserializable Data]"; }
+                }
+                
+                console.log(logStr); // 確保在開發者工具也看得到
+                
+                this.logs.push(logStr);
+                if (this.logs.length > this.maxLogs) {
+                    this.logs.shift(); 
+                }
+                
+                this.saveLocal();
+                this.updateText();
+            },
+            
+            error(tag, msg, err) { this._log(1, "ERR", tag, msg, err ? (err.message || err) : ''); },
+            info(tag, msg, data) { this._log(2, "INF", tag, msg, data); },
+            verbose(tag, msg, data) { this._log(3, "VRB", tag, msg, data); },
+            
+            saveLocal() {
+                try { localStorage.setItem('pwa_audio_logs', JSON.stringify(this.logs)); } catch(e){}
+            },
+            
+            updateText() {
+                if (DEBUG_LEVEL === 0) return; // 沒打開 UI 就不用耗費運算更新文字框
+                const ta = document.getElementById('debugTextArea');
+                if (ta) {
+                    ta.value = this.logs.join('\n');
+                    ta.scrollTop = ta.scrollHeight; 
+                }
+            },
+            
+            clear() {
+                this.logs = [];
+                this.saveLocal();
+                this.updateText();
+                this.info("System", "Logs cleared.");
+            },
+            
+            copyToClipboard() {
+                const text = this.logs.join('\n');
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(text).then(() => showToast('已複製到剪貼簿')).catch(e => this.error("Logger", "Copy failed", e));
+                } else {
+                    const ta = document.getElementById('debugTextArea');
+                    ta.select();
+                    document.execCommand('copy');
+                    showToast('已複製到剪貼簿');
+                }
+            },
+            
+            async shareLog() {
+                const text = this.logs.join('\n');
+                const file = new File([text], `AudioApp_Debug_Log_${new Date().getTime()}.txt`, { type: 'text/plain' });
+                
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                        await navigator.share({
+                            title: 'Audio App Debug Log',
+                            text: '請查看此除錯日誌檔案。',
+                            files: [file]
+                        });
+                        this.info("System", "Log shared successfully via Web Share API");
+                    } catch (e) {
+                        this.error("Logger", "Share API failed/cancelled", e);
+                    }
+                } else {
+                    const url = URL.createObjectURL(file);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = file.name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    this.info("System", "Log downloaded locally (Share API not supported)");
+                    showToast('日誌檔案已下載');
+                }
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', () => { AppLogger.init(); });
+
         /* ========================================== */
         /* --- 0. 輕量級與專業級 JS 移頻引擎架構         */
         /* ========================================== */
@@ -496,12 +653,17 @@
 
         async function fetchAudioInputs() {
             try {
-                if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+                AppLogger.verbose("Hardware", "Fetching audio inputs via enumerateDevices()");
+                if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+                    AppLogger.error("Hardware", "enumerateDevices API not supported");
+                    return;
+                }
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 audioInputDevices = devices.filter(d => d.kind === 'audioinput');
+                AppLogger.info("Hardware", "Found audio inputs", audioInputDevices.length);
                 renderInputSelects();
             } catch (e) {
-                console.warn('無法列舉音訊輸入設備:', e);
+                AppLogger.error("Hardware", "Failed to fetch audio inputs", e);
             }
         }
 
@@ -541,13 +703,16 @@
 
         function handleInputDeviceChange(e) {
             selectedInputId = e.target.value;
+            AppLogger.info("Hardware", "User changed input device", selectedInputId);
             renderInputSelects(); 
             
             if (isRecording) {
+                AppLogger.verbose("Hardware", "Restarting home recording stream to apply new input...");
                 document.getElementById('btnToggleRecord').click(); 
                 setTimeout(() => document.getElementById('btnToggleRecord').click(), 300); 
             }
             if (ana_isPlaying && ana_mediaStream) { 
+                AppLogger.verbose("Hardware", "Restarting analysis recording stream to apply new input...");
                 document.getElementById('btnAnaToggleRecord').click();
                 setTimeout(() => document.getElementById('btnAnaToggleRecord').click(), 300);
             }
@@ -557,7 +722,10 @@
         }
 
         if (navigator.mediaDevices && navigator.mediaDevices.ondevicechange !== undefined) {
-            navigator.mediaDevices.addEventListener('devicechange', fetchAudioInputs);
+            navigator.mediaDevices.addEventListener('devicechange', () => {
+                AppLogger.info("Hardware", "devicechange event triggered by system");
+                fetchAudioInputs();
+            });
         }
         window.addEventListener('DOMContentLoaded', () => {
             fetchAudioInputs();
@@ -603,6 +771,7 @@
         }
 
         function switchTab(tabId) {
+            AppLogger.verbose("UI", "Switching tab to", tabId);
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
@@ -618,17 +787,14 @@
             triggerCanvasResize();
 
             if (tabId !== 'audio-test' && typeof isTestPlaying !== 'undefined' && isTestPlaying) {
+                AppLogger.verbose("UI", "Stopping audio test due to tab switch");
                 stopTestAudio();
             }
         }
 
-        /* ========================================== */
-        /* --- Global App Event Resizer ---           */
-        /* ========================================== */
-        window.addEventListener('resize', () => {
-            triggerCanvasResize();
-        });
+        window.addEventListener('resize', () => { triggerCanvasResize(); });
         window.addEventListener('orientationchange', () => {
+            AppLogger.info("UI", "Orientation changed");
             setTimeout(triggerCanvasResize, 100);
             setTimeout(triggerCanvasResize, 300);
         });
@@ -659,6 +825,7 @@
         /* --- Audio Pipeline Core Setup ---          */
         /* ========================================== */
         function setupAudioPipeline(context, source, gainVal, rowsSelector, isSoftwareNoise, isOutputMuted = false, isWasmEngine = false) {
+            AppLogger.verbose("Pipeline", "Setting up Audio Pipeline", { gainVal, isSoftwareNoise, isWasmEngine });
             let eqNodes = [];
             let pitchNodes = [];
             let inAnalyser = context.createAnalyser();
@@ -801,7 +968,6 @@
             ctx.fillStyle = '#aaa';
             ctx.font = '11px sans-serif';
 
-            // Y Axis
             ctx.textAlign = 'right';
             ctx.textBaseline = 'middle';
             const yTicks = [0, -20, -40, -60, -80, -100];
@@ -812,7 +978,6 @@
                 ctx.fillText(db === 0 ? '0 dB' : db.toString(), pad.l - 5, y);
             });
 
-            // X Axis
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
             
@@ -834,7 +999,6 @@
                 ctx.fillText(label, x, pad.t + gH + 8);
             }
 
-            // 安全線 (-12dB)
             const safeDb = -12;
             const safePercent = (safeDb - (-100)) / 100;
             const safeY = pad.t + gH * (1 - safePercent);
@@ -1067,6 +1231,35 @@
         let isApplyingConfig = false; 
         let bandIdCounter = 0;
 
+        // --- 防呆切斷管線邏輯 ---
+        function safeDisconnect(node) {
+            if (node) { try { node.disconnect(); } catch(e){} }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedConfigs = localStorage.getItem('pwa_audio_configs');
+            if (savedConfigs) { try { configDict = JSON.parse(savedConfigs); } catch (e) { configDict = {}; } }
+            const savedCounter = localStorage.getItem('pwa_audio_config_counter');
+            if (savedCounter) configCounter = parseInt(savedCounter, 10);
+
+            updateHomeSelect();
+
+            if (!configDict['預存變更']) {
+                configDict['預存變更'] = getCurrentSettings();
+                saveConfigToStorage();
+            }
+            applySettings(configDict['預存變更']);
+            stopSpectrumAnimation('spectrumCanvas', mainSpecRef);
+            
+            ana_configDict = JSON.parse(JSON.stringify(configDict));
+            ana_updateConfigSelect();
+            ana_applySettings(ana_configDict['預存變更']);
+            stopSpectrumAnimation('anaSpectrumCanvas', anaSpecRef);
+
+            setupSpectrumGestures(document.getElementById('spectrumCanvas'), mainSpecRef);
+            setupSpectrumGestures(document.getElementById('anaSpectrumCanvas'), anaSpecRef);
+        });
+
         function saveConfigToStorage() {
             localStorage.setItem('pwa_audio_configs', JSON.stringify(configDict));
             localStorage.setItem('pwa_audio_config_counter', configCounter.toString());
@@ -1121,30 +1314,6 @@
             if(configDict[currentVal]) sel.value = currentVal;
             else sel.value = '預存變更';
         }
-
-        window.addEventListener('DOMContentLoaded', () => {
-            const savedConfigs = localStorage.getItem('pwa_audio_configs');
-            if (savedConfigs) { try { configDict = JSON.parse(savedConfigs); } catch (e) { configDict = {}; } }
-            const savedCounter = localStorage.getItem('pwa_audio_config_counter');
-            if (savedCounter) configCounter = parseInt(savedCounter, 10);
-
-            updateHomeSelect();
-
-            if (!configDict['預存變更']) {
-                configDict['預存變更'] = getCurrentSettings();
-                saveConfigToStorage();
-            }
-            applySettings(configDict['預存變更']);
-            stopSpectrumAnimation('spectrumCanvas', mainSpecRef);
-            
-            ana_configDict = JSON.parse(JSON.stringify(configDict));
-            ana_updateConfigSelect();
-            ana_applySettings(ana_configDict['預存變更']);
-            stopSpectrumAnimation('anaSpectrumCanvas', anaSpecRef);
-
-            setupSpectrumGestures(document.getElementById('spectrumCanvas'), mainSpecRef);
-            setupSpectrumGestures(document.getElementById('anaSpectrumCanvas'), anaSpecRef);
-        });
 
         function createBandElement(id, b) {
             const div = document.createElement('div');
@@ -1312,18 +1481,18 @@
             isApplyingConfig = false; 
         }
 
-        // 🌟 修復 1：為所有 disconnect 加入 try-catch 防護網
         function rebuildAudioPipeline() {
             if (!audioContext || !sourceNode) return; 
             
-            try { sourceNode.disconnect(); } catch(e){}
-            if (masterGainNode) try { masterGainNode.disconnect(); } catch(e){}
-            if (noiseFilterHighpass) try { noiseFilterHighpass.disconnect(); } catch(e){}
-            if (noiseFilterLowpass) try { noiseFilterLowpass.disconnect(); } catch(e){}
-            if (inputAnalyser) try { inputAnalyser.disconnect(); } catch(e){}
-            if (outputAnalyser) try { outputAnalyser.disconnect(); } catch(e){}
-            eqFilterNodes.forEach(node => { try { node.disconnect(); } catch(e){} });
-            pitchShifterNodes.forEach(node => { try { node.disconnect(); } catch(e){} });
+            AppLogger.verbose("Home", "Rebuilding audio pipeline...");
+            safeDisconnect(sourceNode);
+            safeDisconnect(masterGainNode);
+            safeDisconnect(noiseFilterHighpass);
+            safeDisconnect(noiseFilterLowpass);
+            safeDisconnect(inputAnalyser);
+            safeDisconnect(outputAnalyser);
+            eqFilterNodes.forEach(safeDisconnect);
+            pitchShifterNodes.forEach(safeDisconnect);
             
             const pipeline = setupAudioPipeline(audioContext, sourceNode, document.getElementById('volumeSlider').value, '#amplifier .band-row', isSoftwareNoiseOn, null, isWasmEngineOn);
             inputAnalyser = pipeline.inAnalyser;
@@ -1456,6 +1625,7 @@
         document.getElementById('btnToggleRecord').addEventListener('click', async () => {
             if (!isRecording) {
                 try {
+                    AppLogger.info("HomeRecord", "Starting Recording Context");
                     audioContext = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
                     if (!audioContext.audioWorkletModuleLoaded) {
                         const blob = new Blob([pitchShiftWorkletCode], { type: 'application/javascript' });
@@ -1468,6 +1638,7 @@
                         constraints.deviceId = { exact: selectedInputId };
                     }
                     
+                    AppLogger.verbose("HomeRecord", "Requesting User Media with constraints", constraints);
                     mediaStream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
                     sourceNode = audioContext.createMediaStreamSource(mediaStream);
                     
@@ -1480,8 +1651,12 @@
                     document.getElementById('btnToggleRecord').textContent = '■ 停止收音';
                     document.getElementById('btnToggleRecord').className = 'btn btn-danger btn-large-toggle';
                     isRecording = true;
-                } catch (err) { alert("無法存取麥克風！"); }
+                } catch (err) { 
+                    AppLogger.error("HomeRecord", "Microphone access denied or failed", err);
+                    alert("無法存取麥克風！"); 
+                }
             } else {
+                AppLogger.info("HomeRecord", "Stopping Recording");
                 stopSpectrumAnimation('spectrumCanvas', mainSpecRef);
                 if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
                 if (audioContext) audioContext.close();
@@ -1687,16 +1862,16 @@
             ana_rebuildAudioPipeline();
         }
 
-        // 🌟 修復 2：為 Analysis 的所有 disconnect 加入 try-catch 防護網
         function ana_rebuildAudioPipeline() {
             if (!ana_audioCtx || !ana_sourceNode) return; 
             
-            try { ana_sourceNode.disconnect(); } catch(e){}
-            if (ana_inputAnalyser) try { ana_inputAnalyser.disconnect(); } catch(e){}
-            if (ana_outputAnalyser) try { ana_outputAnalyser.disconnect(); } catch(e){}
-            if (ana_muteNode) try { ana_muteNode.disconnect(); } catch(e){}
-            ana_eqNodes.forEach(node => { try { node.disconnect(); } catch(e){} });
-            ana_pitchNodes.forEach(node => { try { node.disconnect(); } catch(e){} });
+            AppLogger.verbose("Analysis", "Rebuilding analysis audio pipeline...");
+            safeDisconnect(ana_sourceNode);
+            safeDisconnect(ana_inputAnalyser);
+            safeDisconnect(ana_outputAnalyser);
+            safeDisconnect(ana_muteNode);
+            ana_eqNodes.forEach(safeDisconnect);
+            ana_pitchNodes.forEach(safeDisconnect);
             
             const pipeline = setupAudioPipeline(ana_audioCtx, ana_sourceNode, document.getElementById('anaVolumeSlider').value, '#anaBandsContainer .ana-band-row', ana_isSoftwareNoiseOn, ana_isMuted ? 'off' : 'default', ana_isWasmEngineOn);
             ana_inputAnalyser = pipeline.inAnalyser;
@@ -1753,6 +1928,7 @@
             btn.className = ana_isMuted ? 'btn btn-secondary' : 'btn btn-success';
             if (ana_muteNode) ana_muteNode.gain.value = ana_isMuted ? 0 : 1;
         });
+
         document.getElementById('btnAnaEngineMode').addEventListener('click', () => {
             ana_isWasmEngineOn = !ana_isWasmEngineOn;
             const btn = document.getElementById('btnAnaEngineMode');
@@ -1787,6 +1963,7 @@
         /* --- Analysis Recording & File Playback --- */
         async function initAnaContext() {
             if (!ana_audioCtx) {
+                AppLogger.verbose("Analysis", "Initializing AudioContext...");
                 ana_audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
                 if (!ana_audioCtx.audioWorkletModuleLoaded) {
                     const blob = new Blob([pitchShiftWorkletCode], { type: 'application/javascript' });
@@ -1798,6 +1975,7 @@
         }
         
         function stopAnaAudio() {
+            AppLogger.info("Analysis", "Stopping audio playback/recording");
             stopSpectrumAnimation('anaSpectrumCanvas', anaSpecRef);
             if (ana_mediaStream) { ana_mediaStream.getTracks().forEach(track => track.stop()); ana_mediaStream = null; }
             if (ana_audioElement) { 
@@ -1819,6 +1997,7 @@
         document.getElementById('btnAnaToggleRecord').addEventListener('click', async () => {
             if (!ana_isPlaying) {
                 try {
+                    AppLogger.info("AnaRecord", "Starting Recording Context");
                     await initAnaContext();
                     
                     const constraints = { echoCancellation: false, noiseSuppression: ana_isHardwareNoiseOn, autoGainControl: false };
@@ -1826,6 +2005,7 @@
                         constraints.deviceId = { exact: selectedInputId };
                     }
                     
+                    AppLogger.verbose("AnaRecord", "Requesting User Media with constraints", constraints);
                     ana_mediaStream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
                     ana_sourceNode = ana_audioCtx.createMediaStreamSource(ana_mediaStream);
                     
@@ -1838,7 +2018,10 @@
                     document.getElementById('btnAnaToggleRecord').innerHTML = '■<br>停止收音';
                     document.getElementById('btnAnaToggleRecord').className = 'btn btn-danger btn-square';
                     ana_isPlaying = true;
-                } catch (err) { alert("無法存取麥克風！"); }
+                } catch (err) { 
+                    AppLogger.error("AnaRecord", "Microphone access denied or failed", err);
+                    alert("無法存取麥克風！"); 
+                }
             } else stopAnaAudio();
         });
 
@@ -1849,6 +2032,8 @@
         document.getElementById('anaFileInput').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
+            
+            AppLogger.info("FileImport", "Selected file", { name: file.name, type: file.type, size: file.size });
             
             try {
                 if (ana_audioElement) {
@@ -1862,15 +2047,21 @@
                 ana_audioElement.crossOrigin = "anonymous";
                 ana_audioElement.src = URL.createObjectURL(file);
                 
-                // 緊握使用者的操作手勢，立刻請求播放
+                AppLogger.verbose("FileImport", "Executing synchronous play() to capture user gesture token...");
                 const playPromise = ana_audioElement.play();
-                if (playPromise !== undefined) playPromise.catch(err => console.warn('Play init warning:', err));
+                if (playPromise !== undefined) {
+                    playPromise.catch(err => {
+                        AppLogger.error("FileImport", "Video play() rejected", err);
+                    });
+                }
                 
-                // 等待引擎準備好
                 await initAnaContext();
                 
-                try { ana_sourceNode = ana_audioCtx.createMediaElementSource(ana_audioElement); } 
-                catch(err) { console.error('MediaSource Error:', err); }
+                try { 
+                    ana_sourceNode = ana_audioCtx.createMediaElementSource(ana_audioElement); 
+                } catch(err) { 
+                    AppLogger.error("FileImport", "createMediaElementSource Error", err); 
+                }
                 
                 ana_audioElement.loop = true; 
                 ana_rebuildAudioPipeline();
@@ -1885,9 +2076,9 @@
                 ana_isPlaying = true;
                 
             } catch (err) {
-                console.error("匯入檔案執行錯誤:", err);
+                AppLogger.error("FileImport", "Fatal error during file import execution", err);
             } finally {
-                e.target.value = ''; // 確保可重複選擇同一檔案
+                e.target.value = ''; 
             }
         });
 
