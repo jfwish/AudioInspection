@@ -119,6 +119,9 @@
 </head>
 <body>
 
+    <!-- 實體隱藏音軌播放器 -->
+    <audio id="anaAudioPlayer" style="display: none;" playsinline></audio>
+
     <div id="toastMsg">成功</div>
 
     <div id="customDialogOverlay">
@@ -215,7 +218,6 @@
                         </select>
                     </div>
                     
-                    <!-- 隱藏容器：當 Level = 0 時摺疊此區塊 -->
                     <div id="debugContentWrapper" style="display: none;">
                         <textarea id="debugTextArea" class="debug-textarea" readonly></textarea>
                         <div style="display: flex; gap: 8px;">
@@ -227,7 +229,7 @@
                     </div>
                 </div>
 
-                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.23</p>
+                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.25</p>
             </div>
 
             <!-- ========================================== -->
@@ -331,7 +333,7 @@
                                 <button id="btnAnaHardwareNoise" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">降噪：關</button>
                                 <button id="btnAnaToggleOutput" class="btn btn-success" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">🔊播放輸出: 開</button>
                             </div>
-                            <!-- 🌟 新增：引擎模式切換與麥克風輸入選擇 🌟 -->
+                            
                             <div style="display: flex; gap: 5px; align-items: center; width: 100%;">
                                 <button id="btnAnaEngineMode" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">移頻引擎：標準 JS</button>
                                 <select id="selAnaInputMode" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; text-align: center; appearance: none; font-weight: bold;">
@@ -409,7 +411,6 @@
                     if (saved) { this.logs = JSON.parse(saved); }
                 } catch(e) {}
                 
-                // 綁定 UI 選擇器並套用初始顯示狀態
                 const sel = document.getElementById('selDebugLevel');
                 if (sel) {
                     sel.value = DEBUG_LEVEL.toString();
@@ -429,10 +430,7 @@
             
             updateUIVisibility() {
                 const wrapper = document.getElementById('debugContentWrapper');
-                if (wrapper) {
-                    // 若等級為 0 (關閉)，則瞬間摺疊隱藏下半部內容
-                    wrapper.style.display = DEBUG_LEVEL === 0 ? 'none' : 'block';
-                }
+                if (wrapper) wrapper.style.display = DEBUG_LEVEL === 0 ? 'none' : 'block';
             },
             
             _log(level, type, tag, msg, data) {
@@ -445,12 +443,10 @@
                     catch(e) { logStr += " | [Unserializable Data]"; }
                 }
                 
-                console.log(logStr); // 確保在開發者工具也看得到
+                console.log(logStr); 
                 
                 this.logs.push(logStr);
-                if (this.logs.length > this.maxLogs) {
-                    this.logs.shift(); 
-                }
+                if (this.logs.length > this.maxLogs) this.logs.shift(); 
                 
                 this.saveLocal();
                 this.updateText();
@@ -460,12 +456,10 @@
             info(tag, msg, data) { this._log(2, "INF", tag, msg, data); },
             verbose(tag, msg, data) { this._log(3, "VRB", tag, msg, data); },
             
-            saveLocal() {
-                try { localStorage.setItem('pwa_audio_logs', JSON.stringify(this.logs)); } catch(e){}
-            },
+            saveLocal() { try { localStorage.setItem('pwa_audio_logs', JSON.stringify(this.logs)); } catch(e){} },
             
             updateText() {
-                if (DEBUG_LEVEL === 0) return; // 沒打開 UI 就不用耗費運算更新文字框
+                if (DEBUG_LEVEL === 0) return; 
                 const ta = document.getElementById('debugTextArea');
                 if (ta) {
                     ta.value = this.logs.join('\n');
@@ -474,9 +468,7 @@
             },
             
             clear() {
-                this.logs = [];
-                this.saveLocal();
-                this.updateText();
+                this.logs = []; this.saveLocal(); this.updateText();
                 this.info("System", "Logs cleared.");
             },
             
@@ -486,9 +478,7 @@
                     navigator.clipboard.writeText(text).then(() => showToast('已複製到剪貼簿')).catch(e => this.error("Logger", "Copy failed", e));
                 } else {
                     const ta = document.getElementById('debugTextArea');
-                    ta.select();
-                    document.execCommand('copy');
-                    showToast('已複製到剪貼簿');
+                    ta.select(); document.execCommand('copy'); showToast('已複製到剪貼簿');
                 }
             },
             
@@ -498,24 +488,13 @@
                 
                 if (navigator.canShare && navigator.canShare({ files: [file] })) {
                     try {
-                        await navigator.share({
-                            title: 'Audio App Debug Log',
-                            text: '請查看此除錯日誌檔案。',
-                            files: [file]
-                        });
+                        await navigator.share({ title: 'Audio App Debug Log', text: '請查看此除錯日誌檔案。', files: [file] });
                         this.info("System", "Log shared successfully via Web Share API");
-                    } catch (e) {
-                        this.error("Logger", "Share API failed/cancelled", e);
-                    }
+                    } catch (e) { this.error("Logger", "Share API failed/cancelled", e); }
                 } else {
                     const url = URL.createObjectURL(file);
                     const a = document.createElement('a');
-                    a.href = url;
-                    a.download = file.name;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
+                    a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
                     this.info("System", "Log downloaded locally (Share API not supported)");
                     showToast('日誌檔案已下載');
                 }
@@ -528,7 +507,6 @@
         /* --- 0. 輕量級與專業級 JS 移頻引擎架構         */
         /* ========================================== */
         const pitchShiftWorkletCode = `
-        // --- 1. 輕量級 (標準時間域 Granular) ---
         class PitchShiftProcessor extends AudioWorkletProcessor {
             constructor() {
                 super();
@@ -586,7 +564,6 @@
         }
         registerProcessor('pitch-shift-processor', PitchShiftProcessor);
 
-        // --- 2. 專業級 WASM 相位聲碼器架構 (與高品質 4-Overlap Fallback) ---
         class WasmPhaseVocoderProcessor extends AudioWorkletProcessor {
             constructor() {
                 super();
@@ -655,8 +632,7 @@
             try {
                 AppLogger.verbose("Hardware", "Fetching audio inputs via enumerateDevices()");
                 if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-                    AppLogger.error("Hardware", "enumerateDevices API not supported");
-                    return;
+                    AppLogger.error("Hardware", "enumerateDevices API not supported"); return;
                 }
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 audioInputDevices = devices.filter(d => d.kind === 'audioinput');
@@ -668,36 +644,23 @@
         }
 
         function renderInputSelects() {
-            const selects = [
-                { el: document.getElementById('selInputMode'), type: 'home' },
-                { el: document.getElementById('selAnaInputMode'), type: 'ana' }
-            ];
-            
+            const selects = [ { el: document.getElementById('selInputMode'), type: 'home' }, { el: document.getElementById('selAnaInputMode'), type: 'ana' } ];
             selects.forEach(({el, type}) => {
                 if (!el) return;
                 el.innerHTML = '<option value="default">🎤輸入：系統預設</option>';
-                
                 audioInputDevices.forEach((device, index) => {
                     const label = device.label || `外接裝置/麥克風 ${index + 1}`;
                     if (device.deviceId && device.deviceId !== 'default' && device.deviceId !== 'communications') {
                         const opt = document.createElement('option');
-                        opt.value = device.deviceId;
-                        opt.textContent = `🎤輸入：${label}`;
-                        el.appendChild(opt);
+                        opt.value = device.deviceId; opt.textContent = `🎤輸入：${label}`; el.appendChild(opt);
                     }
                 });
                 
-                if (Array.from(el.options).some(o => o.value === selectedInputId)) {
-                    el.value = selectedInputId;
-                } else {
-                    el.value = 'default';
-                }
+                if (Array.from(el.options).some(o => o.value === selectedInputId)) el.value = selectedInputId;
+                else el.value = 'default';
                 
-                if (type === 'home') {
-                    el.className = el.value === 'default' ? 'btn btn-sm btn-secondary' : 'btn btn-sm btn-info';
-                } else {
-                    el.className = el.value === 'default' ? 'btn btn-secondary' : 'btn btn-info';
-                }
+                if (type === 'home') el.className = el.value === 'default' ? 'btn btn-sm btn-secondary' : 'btn btn-sm btn-info';
+                else el.className = el.value === 'default' ? 'btn btn-secondary' : 'btn btn-info';
             });
         }
 
@@ -708,13 +671,11 @@
             
             if (isRecording) {
                 AppLogger.verbose("Hardware", "Restarting home recording stream to apply new input...");
-                document.getElementById('btnToggleRecord').click(); 
-                setTimeout(() => document.getElementById('btnToggleRecord').click(), 300); 
+                document.getElementById('btnToggleRecord').click(); setTimeout(() => document.getElementById('btnToggleRecord').click(), 300); 
             }
             if (ana_isPlaying && ana_mediaStream) { 
                 AppLogger.verbose("Hardware", "Restarting analysis recording stream to apply new input...");
-                document.getElementById('btnAnaToggleRecord').click();
-                setTimeout(() => document.getElementById('btnAnaToggleRecord').click(), 300);
+                document.getElementById('btnAnaToggleRecord').click(); setTimeout(() => document.getElementById('btnAnaToggleRecord').click(), 300);
             }
             
             markConfigChanged();
@@ -737,38 +698,25 @@
         /* --- Utils: Toast & Dialog ---              */
         /* ========================================== */
         function showToast(msg) {
-            const toast = document.getElementById('toastMsg');
-            toast.textContent = msg;
-            toast.style.display = 'block';
-            setTimeout(() => { toast.style.display = 'none'; }, 2000);
+            const toast = document.getElementById('toastMsg'); toast.textContent = msg; toast.style.display = 'block'; setTimeout(() => { toast.style.display = 'none'; }, 2000);
         }
 
         let dialogCallback = null;
         function showConfirmDialog(msg, callback) {
             const overlay = document.getElementById('customDialogOverlay');
             document.getElementById('customDialogMsg').textContent = msg;
-            const input = document.getElementById('customDialogInput');
-            input.value = '';
-            overlay.style.display = 'flex';
-            dialogCallback = callback;
-            input.focus();
+            const input = document.getElementById('customDialogInput'); input.value = ''; overlay.style.display = 'flex'; dialogCallback = callback; input.focus();
         }
 
         document.getElementById('customDialogBtn').addEventListener('click', () => {
-            const inputVal = document.getElementById('customDialogInput').value;
-            document.getElementById('customDialogOverlay').style.display = 'none';
-            if (dialogCallback) {
-                dialogCallback(inputVal === 'Yes');
-                dialogCallback = null;
-            }
+            const inputVal = document.getElementById('customDialogInput').value; document.getElementById('customDialogOverlay').style.display = 'none';
+            if (dialogCallback) { dialogCallback(inputVal === 'Yes'); dialogCallback = null; }
         });
 
         /* ========================================== */
         /* --- Utils: Tab Switching ---               */
         /* ========================================== */
-        function triggerCanvasResize() {
-            setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 50);
-        }
+        function triggerCanvasResize() { setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 50); }
 
         function switchTab(tabId) {
             AppLogger.verbose("UI", "Switching tab to", tabId);
@@ -778,25 +726,20 @@
             const eventTarget = event.currentTarget;
             if(eventTarget) eventTarget.classList.add('active');
 
-            if (tabId === 'audio-analysis') {
-                document.body.classList.add('analysis-mode');
-            } else {
-                document.body.classList.remove('analysis-mode');
-            }
+            if (tabId === 'audio-analysis') document.body.classList.add('analysis-mode');
+            else document.body.classList.remove('analysis-mode');
 
             triggerCanvasResize();
 
             if (tabId !== 'audio-test' && typeof isTestPlaying !== 'undefined' && isTestPlaying) {
-                AppLogger.verbose("UI", "Stopping audio test due to tab switch");
-                stopTestAudio();
+                AppLogger.verbose("UI", "Stopping audio test due to tab switch"); stopTestAudio();
             }
         }
 
         window.addEventListener('resize', () => { triggerCanvasResize(); });
         window.addEventListener('orientationchange', () => {
             AppLogger.info("UI", "Orientation changed");
-            setTimeout(triggerCanvasResize, 100);
-            setTimeout(triggerCanvasResize, 300);
+            setTimeout(triggerCanvasResize, 100); setTimeout(triggerCanvasResize, 300);
         });
 
         /* ========================================== */
@@ -814,8 +757,7 @@
 
         function calculateGainMultiplier(x, gStart, gEnd, type) {
             if (type === 'geometric') {
-                const s = Math.max(gStart, 0.001);
-                const e = Math.max(gEnd, 0.001);
+                const s = Math.max(gStart, 0.001); const e = Math.max(gEnd, 0.001);
                 return s * Math.pow(e / s, x);
             }
             return gStart + (gEnd - gStart) * getCurveY(x, type); 
@@ -825,105 +767,68 @@
         /* --- Audio Pipeline Core Setup ---          */
         /* ========================================== */
         function setupAudioPipeline(context, source, gainVal, rowsSelector, isSoftwareNoise, isOutputMuted = false, isWasmEngine = false) {
-            AppLogger.verbose("Pipeline", "Setting up Audio Pipeline", { gainVal, isSoftwareNoise, isWasmEngine });
-            let eqNodes = [];
-            let pitchNodes = [];
-            let inAnalyser = context.createAnalyser();
-            inAnalyser.fftSize = 2048; 
-            inAnalyser.minDecibels = -100;
-            inAnalyser.maxDecibels = 0;
-            
-            let outAnalyser = context.createAnalyser();
-            outAnalyser.fftSize = 2048;
-            outAnalyser.minDecibels = -100;
-            outAnalyser.maxDecibels = 0;
+            AppLogger.verbose("Pipeline", "Setting up Audio Pipeline", { gainVal, isSoftwareNoise, isWasmEngine, isOutputMuted });
+            let eqNodes = []; let pitchNodes = [];
+            let inAnalyser = context.createAnalyser(); inAnalyser.fftSize = 2048; inAnalyser.minDecibels = -100; inAnalyser.maxDecibels = 0;
+            let outAnalyser = context.createAnalyser(); outAnalyser.fftSize = 2048; outAnalyser.minDecibels = -100; outAnalyser.maxDecibels = 0;
 
-            source.connect(inAnalyser);
-            let currentNode = source;
+            source.connect(inAnalyser); let currentNode = source;
 
             if (isSoftwareNoise) {
                 const hp = context.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 300; 
                 const lp = context.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3400; 
-                currentNode.connect(hp); hp.connect(lp); currentNode = lp;
-                eqNodes.push(hp, lp);
+                currentNode.connect(hp); hp.connect(lp); currentNode = lp; eqNodes.push(hp, lp);
             }
 
-            const mGain = context.createGain();
-            mGain.gain.value = gainVal;
-            currentNode.connect(mGain);
-            currentNode = mGain;
-            eqNodes.push(mGain);
+            const mGain = context.createGain(); mGain.gain.value = gainVal;
+            currentNode.connect(mGain); currentNode = mGain; eqNodes.push(mGain);
 
             const rows = document.querySelectorAll(rowsSelector);
             rows.forEach(row => {
                 if (row.getAttribute('data-enabled') === 'false') return;
 
-                const fStart = parseFloat(row.querySelector('.f-start').value);
-                const fEnd = parseFloat(row.querySelector('.f-end').value);
-                const volType = row.querySelector('.vol-type').value;
-                const freqType = row.querySelector('.freq-type').value;
+                const fStart = parseFloat(row.querySelector('.f-start').value); const fEnd = parseFloat(row.querySelector('.f-end').value);
+                const volType = row.querySelector('.vol-type').value; const freqType = row.querySelector('.freq-type').value;
 
                 if (fStart >= fEnd) return; 
 
                 if (volType !== 'none') {
-                    const gStart = parseFloat(row.querySelector('.g-start').value);
-                    const gEnd = parseFloat(row.querySelector('.g-end').value);
-                    const N = 10; 
+                    const gStart = parseFloat(row.querySelector('.g-start').value); const gEnd = parseFloat(row.querySelector('.g-end').value); const N = 10; 
                     for(let i = 0; i < N; i++) {
-                        const x = (N === 1) ? 0 : (i / (N - 1));
-                        const freq = fStart * Math.pow(fEnd / fStart, x);
-                        const gainMult = calculateGainMultiplier(x, gStart, gEnd, volType);
-                        const gainDb = 20 * Math.log10(Math.max(gainMult, 0.0001));
+                        const x = (N === 1) ? 0 : (i / (N - 1)); const freq = fStart * Math.pow(fEnd / fStart, x);
+                        const gainMult = calculateGainMultiplier(x, gStart, gEnd, volType); const gainDb = 20 * Math.log10(Math.max(gainMult, 0.0001));
 
-                        const filter = context.createBiquadFilter();
-                        filter.type = 'peaking';
-                        filter.frequency.value = freq;
-                        const octaves = Math.log2(fEnd / fStart);
-                        const bandwidthOctaves = octaves / N;
+                        const filter = context.createBiquadFilter(); filter.type = 'peaking'; filter.frequency.value = freq;
+                        const octaves = Math.log2(fEnd / fStart); const bandwidthOctaves = octaves / N;
                         filter.Q.value = Math.max(0.1, Math.sqrt(Math.pow(2, bandwidthOctaves)) / (Math.pow(2, bandwidthOctaves) - 1));
-                        filter.gain.value = gainDb;
-
-                        currentNode.connect(filter);
-                        currentNode = filter;
-                        eqNodes.push(filter);
+                        filter.gain.value = gainDb; currentNode.connect(filter); currentNode = filter; eqNodes.push(filter);
                     }
                 }
 
                 if (freqType !== 'none' && context.audioWorkletModuleLoaded) {
-                    let targetRatio = 1.0;
-                    let tStart = fStart;
-                    let tEnd = fEnd;
+                    let targetRatio = 1.0; let tStart = fStart; let tEnd = fEnd;
 
                     if (freqType === 'shift') {
-                        const shiftVal = parseFloat(row.querySelector('.freq-shift-val').value);
-                        const centerFreq = Math.max(100, (fStart + fEnd) / 2);
-                        targetRatio = 1.0 + (shiftVal / centerFreq);
-                        tStart = Math.max(20, fStart + shiftVal);
-                        tEnd = Math.max(20, fEnd + shiftVal);
+                        const shiftVal = parseFloat(row.querySelector('.freq-shift-val').value); const centerFreq = Math.max(100, (fStart + fEnd) / 2);
+                        targetRatio = 1.0 + (shiftVal / centerFreq); tStart = Math.max(20, fStart + shiftVal); tEnd = Math.max(20, fEnd + shiftVal);
                     } else {
-                        tStart = parseFloat(row.querySelector('.freq-target-start').value);
-                        tEnd = parseFloat(row.querySelector('.freq-target-end').value);
+                        tStart = parseFloat(row.querySelector('.freq-target-start').value); tEnd = parseFloat(row.querySelector('.freq-target-end').value);
                         targetRatio = Math.max(0.1, (tEnd - tStart) / (fEnd - fStart));
-                        if (freqType === 'scale_curve') targetRatio *= 1.15;
-                        if (freqType === 'scale_inv_curve') targetRatio *= 0.85;
+                        if (freqType === 'scale_curve') targetRatio *= 1.15; if (freqType === 'scale_inv_curve') targetRatio *= 0.85;
                     }
                     
                     const lpOriginal1 = context.createBiquadFilter(); lpOriginal1.type = 'lowpass'; lpOriginal1.frequency.value = fStart;
                     const lpOriginal2 = context.createBiquadFilter(); lpOriginal2.type = 'lowpass'; lpOriginal2.frequency.value = fStart;
-                    
                     const hpOriginal1 = context.createBiquadFilter(); hpOriginal1.type = 'highpass'; hpOriginal1.frequency.value = fEnd;
                     const hpOriginal2 = context.createBiquadFilter(); hpOriginal2.type = 'highpass'; hpOriginal2.frequency.value = fEnd;
-
                     const hpBand = context.createBiquadFilter(); hpBand.type = 'highpass'; hpBand.frequency.value = fStart;
                     const lpBand = context.createBiquadFilter(); lpBand.type = 'lowpass'; lpBand.frequency.value = fEnd;
 
                     const processorName = isWasmEngine ? 'wasm-phase-vocoder-processor' : 'pitch-shift-processor';
-                    const pitchShifter = new AudioWorkletNode(context, processorName);
-                    pitchShifter.port.postMessage({ pitchRatio: targetRatio });
+                    const pitchShifter = new AudioWorkletNode(context, processorName); pitchShifter.port.postMessage({ pitchRatio: targetRatio });
                     
                     const hpTarget = context.createBiquadFilter(); hpTarget.type = 'highpass'; hpTarget.frequency.value = tStart;
                     const lpTarget = context.createBiquadFilter(); lpTarget.type = 'lowpass'; lpTarget.frequency.value = tEnd;
-
                     const mixer = context.createGain();
 
                     currentNode.connect(lpOriginal1); lpOriginal1.connect(lpOriginal2); lpOriginal2.connect(mixer);
@@ -931,8 +836,7 @@
                     currentNode.connect(hpBand); hpBand.connect(lpBand); lpBand.connect(pitchShifter); 
                     pitchShifter.connect(hpTarget); hpTarget.connect(lpTarget); lpTarget.connect(mixer);
 
-                    currentNode = mixer; 
-                    pitchNodes.push(lpOriginal1, lpOriginal2, hpOriginal1, hpOriginal2, hpBand, lpBand, pitchShifter, hpTarget, lpTarget, mixer);
+                    currentNode = mixer; pitchNodes.push(lpOriginal1, lpOriginal2, hpOriginal1, hpOriginal2, hpBand, lpBand, pitchShifter, hpTarget, lpTarget, mixer);
                 }
             });
 
@@ -940,6 +844,7 @@
             
             let muteNode = null;
             if (isOutputMuted !== null) {
+                // 🌟 修正點 1：正確處理 Boolean 變數
                 muteNode = context.createGain();
                 muteNode.gain.value = isOutputMuted ? 0 : 1;
                 currentNode.connect(muteNode);
@@ -956,120 +861,75 @@
         /* ========================================== */
         function drawSpectrumGrid(ctx, canvasWidth, canvasHeight, viewStart, viewEnd) {
             const pad = { t: 25, r: 25, b: 25, l: 40 }; 
-            const gW = canvasWidth - pad.l - pad.r;
-            const gH = canvasHeight - pad.t - pad.b;
-            const span = viewEnd - viewStart;
+            const gW = canvasWidth - pad.l - pad.r; const gH = canvasHeight - pad.t - pad.b; const span = viewEnd - viewStart;
 
-            ctx.fillStyle = '#111';
-            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+            ctx.fillStyle = '#111'; ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+            ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.fillStyle = '#aaa'; ctx.font = '11px sans-serif';
 
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 1;
-            ctx.fillStyle = '#aaa';
-            ctx.font = '11px sans-serif';
-
-            ctx.textAlign = 'right';
-            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
             const yTicks = [0, -20, -40, -60, -80, -100];
             yTicks.forEach(db => {
-                const percent = (db - (-100)) / 100;
-                const y = pad.t + gH * (1 - percent);
+                const percent = (db - (-100)) / 100; const y = pad.t + gH * (1 - percent);
                 ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + gW, y); ctx.stroke();
                 ctx.fillText(db === 0 ? '0 dB' : db.toString(), pad.l - 5, y);
             });
 
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'top';
-            
+            ctx.textAlign = 'center'; ctx.textBaseline = 'top';
             let step;
-            if (span <= 500) step = 50;
-            else if (span <= 1000) step = 100;
-            else if (span <= 2500) step = 250;
-            else if (span <= 5000) step = 500;
-            else if (span <= 10000) step = 1000;
-            else if (span <= 20000) step = 2000;
-            else step = 4000;
+            if (span <= 500) step = 50; else if (span <= 1000) step = 100; else if (span <= 2500) step = 250; else if (span <= 5000) step = 500; else if (span <= 10000) step = 1000; else if (span <= 20000) step = 2000; else step = 4000;
 
             let startTick = Math.ceil(viewStart / step) * step;
-            
             for (let freq = startTick; freq <= viewEnd; freq += step) {
                 const x = pad.l + gW * ((freq - viewStart) / span);
                 ctx.beginPath(); ctx.moveTo(x, pad.t + gH); ctx.lineTo(x, pad.t + gH + 5); ctx.stroke();
-                let label = freq >= 1000 ? (freq / 1000) + 'k' : freq.toString();
-                ctx.fillText(label, x, pad.t + gH + 8);
+                let label = freq >= 1000 ? (freq / 1000) + 'k' : freq.toString(); ctx.fillText(label, x, pad.t + gH + 8);
             }
 
-            const safeDb = -12;
-            const safePercent = (safeDb - (-100)) / 100;
-            const safeY = pad.t + gH * (1 - safePercent);
-            ctx.strokeStyle = 'rgba(255, 165, 0, 0.8)';
-            ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5;
-            ctx.beginPath(); ctx.moveTo(pad.l, safeY); ctx.lineTo(pad.l + gW, safeY); ctx.stroke();
-            ctx.setLineDash([]); 
+            const safeDb = -12; const safePercent = (safeDb - (-100)) / 100; const safeY = pad.t + gH * (1 - safePercent);
+            ctx.strokeStyle = 'rgba(255, 165, 0, 0.8)'; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(pad.l, safeY); ctx.lineTo(pad.l + gW, safeY); ctx.stroke(); ctx.setLineDash([]); 
             
-            ctx.fillStyle = 'orange'; ctx.textAlign = 'right';
-            ctx.fillText('-12 dB', pad.l + gW, safeY - 8);
+            ctx.fillStyle = 'orange'; ctx.textAlign = 'right'; ctx.fillText('-12 dB', pad.l + gW, safeY - 8);
 
             return { pad, gW, gH };
         }
 
         function runSpectrumAnimation(ctx, canvas, inAnalyser, outAnalyser, inData, outData, maxFreq, viewRef) {
-            inAnalyser.getFloatFrequencyData(inData);
-            outAnalyser.getFloatFrequencyData(outData);
-
-            const viewStart = viewRef.startFreq;
-            const viewEnd = viewRef.endFreq;
-            const span = viewEnd - viewStart;
-
+            inAnalyser.getFloatFrequencyData(inData); outAnalyser.getFloatFrequencyData(outData);
+            const viewStart = viewRef.startFreq; const viewEnd = viewRef.endFreq; const span = viewEnd - viewStart;
             const { pad, gW, gH } = drawSpectrumGrid(ctx, canvas.width, canvas.height, viewStart, viewEnd);
             
-            const bufferLength = inAnalyser.frequencyBinCount;
-            const binHz = maxFreq / bufferLength;
-            const barWidth = gW * (binHz / span);
+            const bufferLength = inAnalyser.frequencyBinCount; const binHz = maxFreq / bufferLength; const barWidth = gW * (binHz / span);
 
             for (let i = 0; i < bufferLength; i++) {
                 const binFreq = i * binHz;
                 if (binFreq + binHz < viewStart || binFreq > viewEnd) continue;
 
-                let x = pad.l + gW * ((binFreq - viewStart) / span);
-                let drawX = Math.max(pad.l, x);
-                let drawW = barWidth;
-                
+                let x = pad.l + gW * ((binFreq - viewStart) / span); let drawX = Math.max(pad.l, x); let drawW = barWidth;
                 if (x < pad.l) drawW -= (pad.l - x);
                 if (drawX + drawW > pad.l + gW) drawW = (pad.l + gW) - drawX;
                 if (drawW <= 0) continue;
 
-                let inPercent = (inData[i] - (-100)) / 100;
-                if(inPercent < 0) inPercent = 0; if(inPercent > 1) inPercent = 1;
-                let outPercent = (outData[i] - (-100)) / 100;
-                if(outPercent < 0) outPercent = 0; if(outPercent > 1) outPercent = 1;
+                let inPercent = (inData[i] - (-100)) / 100; if(inPercent < 0) inPercent = 0; if(inPercent > 1) inPercent = 1;
+                let outPercent = (outData[i] - (-100)) / 100; if(outPercent < 0) outPercent = 0; if(outPercent > 1) outPercent = 1;
 
-                const inputHeight = inPercent * gH;
-                const outputHeight = outPercent * gH;
+                const inputHeight = inPercent * gH; const outputHeight = outPercent * gH;
 
                 ctx.fillStyle = 'rgba(150, 150, 150, 0.6)';
                 ctx.fillRect(drawX, pad.t + gH - inputHeight, drawW > 1 ? drawW - 1 : drawW, inputHeight);
 
-                ctx.fillStyle = 'rgba(0, 123, 255, 0.9)';
-                const outWidth = Math.max(1, (drawW - 1) * 0.5);
-                const outX = drawX + ((drawW - 1) - outWidth) / 2;
+                ctx.fillStyle = 'rgba(0, 123, 255, 0.9)'; const outWidth = Math.max(1, (drawW - 1) * 0.5); const outX = drawX + ((drawW - 1) - outWidth) / 2;
                 ctx.fillRect(outX, pad.t + gH - outputHeight, outWidth, outputHeight);
             }
         }
 
         function startSpectrumAnimation(canvasId, refObj) {
-            const canvas = document.getElementById(canvasId);
-            const ctx = canvas.getContext('2d');
-            
-            canvas.width = canvas.clientWidth;
-            canvas.height = canvas.clientHeight;
+            const canvas = document.getElementById(canvasId); const ctx = canvas.getContext('2d');
+            canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight;
 
             const bufferLength = refObj.inAna.frequencyBinCount; 
-            refObj.inData = new Float32Array(bufferLength);
-            refObj.outData = new Float32Array(bufferLength);
-            
-            const sampleRate = (refObj.ctx && refObj.ctx.sampleRate) ? refObj.ctx.sampleRate : 48000;
-            const maxFreq = sampleRate / 2;
+            refObj.inData = new Float32Array(bufferLength); refObj.outData = new Float32Array(bufferLength);
+            const sampleRate = (refObj.ctx && refObj.ctx.sampleRate) ? refObj.ctx.sampleRate : 48000; const maxFreq = sampleRate / 2;
 
             function draw() {
                 refObj.animId = requestAnimationFrame(draw);
@@ -1082,122 +942,62 @@
             if (refObj && refObj.animId) cancelAnimationFrame(refObj.animId);
             const canvas = document.getElementById(canvasId);
             if(canvas) {
-                const ctx = canvas.getContext('2d');
-                canvas.width = canvas.clientWidth;
-                canvas.height = canvas.clientHeight;
+                const ctx = canvas.getContext('2d'); canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight;
                 drawSpectrumGrid(ctx, canvas.width, canvas.height, refObj.view.startFreq, refObj.view.endFreq); 
             }
         }
 
         /* --- 觸控手勢核心解析器 --- */
         function setupSpectrumGestures(canvas, refObj) {
-            let initialPinchDist = null;
-            let initialViewSpan = null;
-            let initialCenterFreq = null;
-            let lastTouch = null; 
+            let initialPinchDist = null; let initialViewSpan = null; let initialCenterFreq = null; let lastTouch = null; 
 
-            function getCanvasX(touch) {
-                const rect = canvas.getBoundingClientRect();
-                return touch.clientX - rect.left;
-            }
-
-            function getPanDelta(touch, lastTouchObj) {
-                return touch.clientX - lastTouchObj.x;
-            }
+            function getCanvasX(touch) { const rect = canvas.getBoundingClientRect(); return touch.clientX - rect.left; }
+            function getPanDelta(touch, lastTouchObj) { return touch.clientX - lastTouchObj.x; }
 
             canvas.addEventListener('touchstart', (e) => {
                 if (e.touches.length === 2) {
                     e.preventDefault();
-                    const dx = e.touches[0].clientX - e.touches[1].clientX;
-                    const dy = e.touches[0].clientY - e.touches[1].clientY;
-                    initialPinchDist = Math.sqrt(dx*dx + dy*dy);
-                    initialViewSpan = refObj.view.endFreq - refObj.view.startFreq;
-                    
-                    const cx = (getCanvasX(e.touches[0]) + getCanvasX(e.touches[1])) / 2;
-                    const padL = 40; 
-                    const gW = canvas.clientWidth - padL - 25; 
-                    const percentX = Math.max(0, Math.min(1, (cx - padL) / gW));
-                    
-                    initialCenterFreq = refObj.view.startFreq + percentX * initialViewSpan;
+                    const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    initialPinchDist = Math.sqrt(dx*dx + dy*dy); initialViewSpan = refObj.view.endFreq - refObj.view.startFreq;
+                    const cx = (getCanvasX(e.touches[0]) + getCanvasX(e.touches[1])) / 2; const padL = 40; const gW = canvas.clientWidth - padL - 25; 
+                    const percentX = Math.max(0, Math.min(1, (cx - padL) / gW)); initialCenterFreq = refObj.view.startFreq + percentX * initialViewSpan;
                     lastTouch = null;
-                } else if (e.touches.length === 1) {
-                    lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-                }
+                } else if (e.touches.length === 1) { lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }
             }, { passive: false });
 
             canvas.addEventListener('touchmove', (e) => {
                 if (e.touches.length === 2 && initialPinchDist) {
                     e.preventDefault();
-                    const dx = e.touches[0].clientX - e.touches[1].clientX;
-                    const dy = e.touches[0].clientY - e.touches[1].clientY;
-                    const currentDist = Math.sqrt(dx*dx + dy*dy);
-                    
-                    if (currentDist === 0) return;
-                    let scale = initialPinchDist / currentDist;
-                    
-                    let newSpan = initialViewSpan * scale;
-                    if (newSpan < refObj.view.minFreqSpan) newSpan = refObj.view.minFreqSpan;
-                    if (newSpan > 24000) newSpan = 24000;
-                    
-                    let percentX = (initialCenterFreq - refObj.view.startFreq) / initialViewSpan;
-                    let newStart = initialCenterFreq - percentX * newSpan;
-                    let newEnd = newStart + newSpan;
-                    
-                    if (newStart < 0) { newStart = 0; newEnd = newSpan; }
-                    if (newEnd > 24000) { newEnd = 24000; newStart = 24000 - newSpan; }
-                    
-                    refObj.view.startFreq = newStart;
-                    refObj.view.endFreq = newEnd;
+                    const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    const currentDist = Math.sqrt(dx*dx + dy*dy); if (currentDist === 0) return; let scale = initialPinchDist / currentDist;
+                    let newSpan = initialViewSpan * scale; if (newSpan < refObj.view.minFreqSpan) newSpan = refObj.view.minFreqSpan; if (newSpan > 24000) newSpan = 24000;
+                    let percentX = (initialCenterFreq - refObj.view.startFreq) / initialViewSpan; let newStart = initialCenterFreq - percentX * newSpan; let newEnd = newStart + newSpan;
+                    if (newStart < 0) { newStart = 0; newEnd = newSpan; } if (newEnd > 24000) { newEnd = 24000; newStart = 24000 - newSpan; }
+                    refObj.view.startFreq = newStart; refObj.view.endFreq = newEnd;
                 } else if (e.touches.length === 1 && lastTouch !== null) {
                     e.preventDefault();
-                    const delta = getPanDelta(e.touches[0], lastTouch);
-                    lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-                    
-                    const gW = canvas.clientWidth - 40 - 25;
-                    const currentSpan = refObj.view.endFreq - refObj.view.startFreq;
-                    
-                    const shiftFreq = - (delta / gW) * currentSpan;
-                    
-                    let newStart = refObj.view.startFreq + shiftFreq;
-                    let newEnd = refObj.view.endFreq + shiftFreq;
-                    
-                    if (newStart < 0) { newStart = 0; newEnd = currentSpan; }
-                    if (newEnd > 24000) { newEnd = 24000; newStart = 24000 - currentSpan; }
-                    
-                    refObj.view.startFreq = newStart;
-                    refObj.view.endFreq = newEnd;
+                    const delta = getPanDelta(e.touches[0], lastTouch); lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                    const gW = canvas.clientWidth - 40 - 25; const currentSpan = refObj.view.endFreq - refObj.view.startFreq; const shiftFreq = - (delta / gW) * currentSpan;
+                    let newStart = refObj.view.startFreq + shiftFreq; let newEnd = refObj.view.endFreq + shiftFreq;
+                    if (newStart < 0) { newStart = 0; newEnd = currentSpan; } if (newEnd > 24000) { newEnd = 24000; newStart = 24000 - currentSpan; }
+                    refObj.view.startFreq = newStart; refObj.view.endFreq = newEnd;
                 }
             }, { passive: false });
 
             canvas.addEventListener('touchend', (e) => {
                 if (e.touches.length < 2) initialPinchDist = null;
-                if (e.touches.length === 0) lastTouch = null;
-                else if (e.touches.length === 1) lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                if (e.touches.length === 0) lastTouch = null; else if (e.touches.length === 1) lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
             });
 
             canvas.addEventListener('wheel', (e) => {
                 e.preventDefault();
-                const cx = getCanvasX(e);
-                const padL = 40; 
-                const gW = canvas.clientWidth - padL - 25; 
-                const percentX = Math.max(0, Math.min(1, (cx - padL) / gW));
-                
-                const currentSpan = refObj.view.endFreq - refObj.view.startFreq;
-                const centerFreq = refObj.view.startFreq + percentX * currentSpan;
-                
-                let zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
-                let newSpan = currentSpan * zoomFactor;
-                if (newSpan < refObj.view.minFreqSpan) newSpan = refObj.view.minFreqSpan;
-                if (newSpan > 24000) newSpan = 24000;
-                
-                let newStart = centerFreq - percentX * newSpan;
-                let newEnd = newStart + newSpan;
-                
-                if (newStart < 0) { newStart = 0; newEnd = newSpan; }
-                if (newEnd > 24000) { newEnd = 24000; newStart = 24000 - newSpan; }
-                
-                refObj.view.startFreq = newStart;
-                refObj.view.endFreq = newEnd;
+                const cx = getCanvasX(e); const padL = 40; const gW = canvas.clientWidth - padL - 25; const percentX = Math.max(0, Math.min(1, (cx - padL) / gW));
+                const currentSpan = refObj.view.endFreq - refObj.view.startFreq; const centerFreq = refObj.view.startFreq + percentX * currentSpan;
+                let zoomFactor = e.deltaY > 0 ? 1.1 : 0.9; let newSpan = currentSpan * zoomFactor;
+                if (newSpan < refObj.view.minFreqSpan) newSpan = refObj.view.minFreqSpan; if (newSpan > 24000) newSpan = 24000;
+                let newStart = centerFreq - percentX * newSpan; let newEnd = newStart + newSpan;
+                if (newStart < 0) { newStart = 0; newEnd = newSpan; } if (newEnd > 24000) { newEnd = 24000; newStart = 24000 - newSpan; }
+                refObj.view.startFreq = newStart; refObj.view.endFreq = newEnd;
             }, { passive: false });
         }
 
@@ -1231,7 +1031,6 @@
         let isApplyingConfig = false; 
         let bandIdCounter = 0;
 
-        // --- 防呆切斷管線邏輯 ---
         function safeDisconnect(node) {
             if (node) { try { node.disconnect(); } catch(e){} }
         }
@@ -1626,11 +1425,16 @@
             if (!isRecording) {
                 try {
                     AppLogger.info("HomeRecord", "Starting Recording Context");
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+                    if (!audioContext) {
+                        audioContext = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+                    }
                     if (!audioContext.audioWorkletModuleLoaded) {
                         const blob = new Blob([pitchShiftWorkletCode], { type: 'application/javascript' });
                         await audioContext.audioWorklet.addModule(URL.createObjectURL(blob));
                         audioContext.audioWorkletModuleLoaded = true;
+                    }
+                    if (audioContext.state === 'suspended') {
+                        await audioContext.resume();
                     }
                     
                     const constraints = { echoCancellation: false, noiseSuppression: isHardwareNoiseOn, autoGainControl: false };
@@ -1659,7 +1463,8 @@
                 AppLogger.info("HomeRecord", "Stopping Recording");
                 stopSpectrumAnimation('spectrumCanvas', mainSpecRef);
                 if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
-                if (audioContext) audioContext.close();
+                if (audioContext && audioContext.state === 'running') audioContext.suspend();
+                
                 document.getElementById('btnToggleRecord').textContent = '▶ 開始收音';
                 document.getElementById('btnToggleRecord').className = 'btn btn-primary btn-large-toggle';
                 isRecording = false;
@@ -1673,7 +1478,8 @@
         let ana_audioCtx;
         let ana_sourceNode;
         let ana_mediaStream;
-        let ana_audioElement = null;
+        const ana_audioElement = document.getElementById('anaAudioPlayer'); 
+        let ana_fileSourceNode = null;
         let ana_isPlaying = false;
         let ana_isMuted = false;
         
@@ -1873,7 +1679,8 @@
             ana_eqNodes.forEach(safeDisconnect);
             ana_pitchNodes.forEach(safeDisconnect);
             
-            const pipeline = setupAudioPipeline(ana_audioCtx, ana_sourceNode, document.getElementById('anaVolumeSlider').value, '#anaBandsContainer .ana-band-row', ana_isSoftwareNoiseOn, ana_isMuted ? 'off' : 'default', ana_isWasmEngineOn);
+            // 🌟 修復 1：傳入 Boolean 型別的 ana_isMuted，完美解決「切換前沒聲音」的問題
+            const pipeline = setupAudioPipeline(ana_audioCtx, ana_sourceNode, document.getElementById('anaVolumeSlider').value, '#anaBandsContainer .ana-band-row', ana_isSoftwareNoiseOn, ana_isMuted, ana_isWasmEngineOn);
             ana_inputAnalyser = pipeline.inAnalyser;
             ana_outputAnalyser = pipeline.outAnalyser;
             ana_eqNodes = pipeline.eqNodes;
@@ -1928,7 +1735,6 @@
             btn.className = ana_isMuted ? 'btn btn-secondary' : 'btn btn-success';
             if (ana_muteNode) ana_muteNode.gain.value = ana_isMuted ? 0 : 1;
         });
-
         document.getElementById('btnAnaEngineMode').addEventListener('click', () => {
             ana_isWasmEngineOn = !ana_isWasmEngineOn;
             const btn = document.getElementById('btnAnaEngineMode');
@@ -1965,25 +1771,32 @@
             if (!ana_audioCtx) {
                 AppLogger.verbose("Analysis", "Initializing AudioContext...");
                 ana_audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
-                if (!ana_audioCtx.audioWorkletModuleLoaded) {
-                    const blob = new Blob([pitchShiftWorkletCode], { type: 'application/javascript' });
-                    await ana_audioCtx.audioWorklet.addModule(URL.createObjectURL(blob));
-                    ana_audioCtx.audioWorkletModuleLoaded = true;
-                }
             }
-            if(ana_audioCtx.state === 'suspended') await ana_audioCtx.resume();
+            if (!ana_audioCtx.audioWorkletModuleLoaded) {
+                const blob = new Blob([pitchShiftWorkletCode], { type: 'application/javascript' });
+                await ana_audioCtx.audioWorklet.addModule(URL.createObjectURL(blob));
+                ana_audioCtx.audioWorkletModuleLoaded = true;
+            }
+            if (ana_audioCtx.state === 'suspended') {
+                await ana_audioCtx.resume();
+            }
         }
         
         function stopAnaAudio() {
             AppLogger.info("Analysis", "Stopping audio playback/recording");
             stopSpectrumAnimation('anaSpectrumCanvas', anaSpecRef);
+            
             if (ana_mediaStream) { ana_mediaStream.getTracks().forEach(track => track.stop()); ana_mediaStream = null; }
-            if (ana_audioElement) { 
+            
+            if (ana_audioElement && !ana_audioElement.paused) { 
                 ana_audioElement.pause(); 
                 ana_audioElement.removeAttribute('src'); 
                 ana_audioElement.load(); 
             }
-            if (ana_audioCtx) { ana_audioCtx.close(); ana_audioCtx = null; }
+            
+            if (ana_audioCtx && ana_audioCtx.state === 'running') {
+                ana_audioCtx.suspend();
+            }
             
             document.getElementById('btnAnaToggleRecord').innerHTML = '▶<br>開始收音';
             document.getElementById('btnAnaToggleRecord').className = 'btn btn-primary btn-square';
@@ -2025,8 +1838,18 @@
             } else stopAnaAudio();
         });
 
+        // 🌟 修正點 2：Safari 使用者手勢防阻擋核心機制
         document.getElementById('btnAnaImportFile').addEventListener('click', () => {
-            if (!ana_isPlaying) document.getElementById('anaFileInput').click(); else stopAnaAudio();
+            if (!ana_isPlaying) {
+                // 利用按鈕點擊的瞬間啟動 AudioContext，並執行 load() 來拿取授權權杖
+                if (!ana_audioCtx) ana_audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+                if (ana_audioCtx.state === 'suspended') ana_audioCtx.resume(); 
+                
+                ana_audioElement.load(); 
+                document.getElementById('anaFileInput').click(); 
+            } else {
+                stopAnaAudio();
+            }
         });
 
         document.getElementById('anaFileInput').addEventListener('change', async (e) => {
@@ -2036,34 +1859,37 @@
             AppLogger.info("FileImport", "Selected file", { name: file.name, type: file.type, size: file.size });
             
             try {
-                if (ana_audioElement) {
-                    ana_audioElement.pause();
-                    ana_audioElement.removeAttribute('src');
-                    ana_audioElement.load();
-                }
-                
-                ana_audioElement = document.createElement('video');
-                ana_audioElement.playsInline = true;
-                ana_audioElement.crossOrigin = "anonymous";
+                if (!ana_audioElement.paused) ana_audioElement.pause();
                 ana_audioElement.src = URL.createObjectURL(file);
                 
                 AppLogger.verbose("FileImport", "Executing synchronous play() to capture user gesture token...");
                 const playPromise = ana_audioElement.play();
+                
+                // 🌟 Safari 自動恢復機制：若阻擋播放，由輕觸畫面接手
                 if (playPromise !== undefined) {
                     playPromise.catch(err => {
-                        AppLogger.error("FileImport", "Video play() rejected", err);
+                        AppLogger.error("FileImport", "Audio play() rejected, activating fallback", err);
+                        showToast("系統限制自動播放，請輕觸畫面任一處以開始");
+                        
+                        document.body.addEventListener('click', () => {
+                            if (ana_isPlaying && ana_audioElement.paused) {
+                                ana_audioElement.play();
+                                AppLogger.info("FileImport", "Playback resumed via user tap fallback");
+                            }
+                        }, { once: true, capture: true });
                     });
                 }
                 
                 await initAnaContext();
                 
-                try { 
-                    ana_sourceNode = ana_audioCtx.createMediaElementSource(ana_audioElement); 
-                } catch(err) { 
-                    AppLogger.error("FileImport", "createMediaElementSource Error", err); 
+                if (!ana_fileSourceNode) {
+                    AppLogger.verbose("FileImport", "Creating MediaElementSource for the first time");
+                    ana_fileSourceNode = ana_audioCtx.createMediaElementSource(ana_audioElement);
                 }
                 
+                ana_sourceNode = ana_fileSourceNode;
                 ana_audioElement.loop = true; 
+                
                 ana_rebuildAudioPipeline();
                 
                 anaSpecRef.ctx = ana_audioCtx; 
@@ -2149,6 +1975,7 @@
             if (testGainNode && testAudioCtx) {
                 testGainNode.gain.cancelScheduledValues(testAudioCtx.currentTime);
                 testGainNode.gain.setTargetAtTime(0, testAudioCtx.currentTime, 0.05);
+                setTimeout(() => { if (testAudioCtx && testAudioCtx.state === 'running') testAudioCtx.suspend(); }, 100);
             }
             testPlayBtn.textContent = '▶ 開始播放'; testPlayBtn.className = 'btn btn-play-test'; isTestPlaying = false;
         }
