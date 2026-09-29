@@ -161,7 +161,7 @@
                         
                         <button id="btnEngineMode" class="btn btn-sm btn-secondary">移頻引擎：標準 JS</button>
                         <select id="selInputMode" class="btn btn-sm btn-secondary" style="text-align: center; appearance: none; font-weight: bold;">
-                            <option value="default" selected>🎤輸入：系統預設</option>
+                            <option value="default" selected>�輸入：系統預設</option>
                         </select>
                     </div>
 
@@ -206,10 +206,10 @@
                     </div>
                 </div>
                 
-                <!-- 🌟 動態 UI 控制版全局日誌面板 🌟 -->
+                <!-- � 動態 UI 控制版全局日誌面板 � -->
                 <div class="card debug-panel" id="debugPanelUI">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <h3 style="margin: 0; color: #fff;">🛠️ 系統除錯 (Debug)</h3>
+                        <h3 style="margin: 0; color: #fff;">�️ 系統除錯 (Debug)</h3>
                         <select id="selDebugLevel" class="debug-select">
                             <option value="0">0: 關閉 (Off)</option>
                             <option value="1">1: 僅錯誤 (Err)</option>
@@ -221,15 +221,15 @@
                     <div id="debugContentWrapper" style="display: none;">
                         <textarea id="debugTextArea" class="debug-textarea" readonly></textarea>
                         <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-sm btn-secondary" onclick="AppLogger.copyToClipboard()">📋 複製</button>
-                            <button class="btn btn-sm btn-info" onclick="AppLogger.shareLog()">📤 分享/匯出檔</button>
-                            <button class="btn btn-sm btn-danger" onclick="AppLogger.clear()">🗑️ 清空</button>
+                            <button class="btn btn-sm btn-secondary" onclick="AppLogger.copyToClipboard()">� 複製</button>
+                            <button class="btn btn-sm btn-info" onclick="AppLogger.shareLog()">� 分享/匯出檔</button>
+                            <button class="btn btn-sm btn-danger" onclick="AppLogger.clear()">�️ 清空</button>
                         </div>
                         <p style="color: #888; font-size: 10px; margin-top: 8px; margin-bottom: 0;">註：分享功能可直接將日誌存入 Google Drive、iCloud 或透過 LINE 傳送以達雲端備份效果。</p>
                     </div>
                 </div>
 
-                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.25</p>
+                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.28</p>
             </div>
 
             <!-- ========================================== -->
@@ -237,7 +237,12 @@
             <!-- ========================================== -->
             <div id="audio-test" class="tab-content">
                 <div class="card">
-                    <h2 style="margin-top: 0; text-align: center;">聽力頻率測試</h2>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h2 style="margin-top: 0; margin-bottom: 0;">聽力頻率測試</h2>
+                        <!-- � 測試功能 1：跨分頁播放開關 -->
+                        <button id="btnTestKeepPlaying" class="btn btn-sm btn-secondary" style="width: auto;">跨分頁持續播放 (關)</button>
+                    </div>
+                    
                     <div id="testFreqDisplay">1000 Hz</div>
                     
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
@@ -331,13 +336,13 @@
                             <div style="display: flex; gap: 5px; align-items: center; width: 100%;">
                                 <button id="btnAnaSoftwareNoise" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">人聲降噪：關</button>
                                 <button id="btnAnaHardwareNoise" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">降噪：關</button>
-                                <button id="btnAnaToggleOutput" class="btn btn-success" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">🔊播放輸出: 開</button>
+                                <button id="btnAnaToggleOutput" class="btn btn-success" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">�播放輸出: 開</button>
                             </div>
                             
                             <div style="display: flex; gap: 5px; align-items: center; width: 100%;">
                                 <button id="btnAnaEngineMode" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">移頻引擎：標準 JS</button>
                                 <select id="selAnaInputMode" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; text-align: center; appearance: none; font-weight: bold;">
-                                    <option value="default" selected>🎤輸入：系統預設</option>
+                                    <option value="default" selected>�輸入：系統預設</option>
                                 </select>
                             </div>
                         </div>
@@ -348,8 +353,13 @@
                         <div class="ana-divider"></div>
 
                         <!-- C. 匯入音檔 (正方形) -->
-                        <button id="btnAnaImportFile" class="btn btn-info btn-square" style="width: 80px; height: 80px; font-size: 14px;">📂<br>匯入音檔</button>
+                        <button id="btnAnaImportFile" class="btn btn-info btn-square" style="width: 80px; height: 80px; font-size: 14px;">�<br>匯入音檔</button>
+                        <!-- ⚠️ 擴充 accept 屬性：允許音檔與影片，明確指定副檔名以防 iOS 灰階禁用 -->
                         <input type="file" id="anaFileInput" accept="audio/*, video/*, .mp3, .wav, .m4a, .mp4, .mov" style="display: none;">
+                        <div class="ana-divider"></div>
+                        
+                        <!-- � 測試功能 2：D. 內建測試音源 (正方形) -->
+                        <button id="btnAnaTestTone" class="btn btn-warning btn-square" style="width: 80px; height: 80px; font-size: 14px;">�<br>內建測試</button>
                         <div class="ana-divider"></div>
 
                         <!-- E & F. 組態設定區 -->
@@ -396,7 +406,7 @@
 
     <script>
         /* ========================================================================= */
-        /* 🌟 核心除錯常數與日誌系統 (動態 UI 調整版) 🌟                                  */
+        /* � 核心除錯常數與日誌系統 (動態 UI 調整版) �                                  */
         /* ========================================================================= */
         
         let DEBUG_LEVEL = parseInt(localStorage.getItem('pwa_debug_level') || '0', 10);
@@ -507,6 +517,7 @@
         /* --- 0. 輕量級與專業級 JS 移頻引擎架構         */
         /* ========================================== */
         const pitchShiftWorkletCode = `
+        // --- 1. FS-GS 引擎 (Granular Synthesis) ---
         class PitchShiftProcessor extends AudioWorkletProcessor {
             constructor() {
                 super();
@@ -564,6 +575,125 @@
         }
         registerProcessor('pitch-shift-processor', PitchShiftProcessor);
 
+        // --- 2. FS-HT 引擎 (Hilbert Transform) - 完美單邊帶頻率平移 ---
+        class FsHtProcessor extends AudioWorkletProcessor {
+            constructor() {
+                super();
+                this.shiftHz = 500;
+                this.sampleRate = 48000;
+                this.phase = 0;
+                
+                this.port.onmessage = (e) => {
+                    if (e.data.shiftHz !== undefined) this.shiftHz = e.data.shiftHz;
+                    if (e.data.sampleRate !== undefined) this.sampleRate = e.data.sampleRate;
+                };
+
+                // 產生 63-tap FIR 希爾伯特濾波器係數
+                this.numTaps = 63;
+                this.h = new Float32Array(this.numTaps);
+                this.delayLine = new Float32Array(this.numTaps);
+                this.delayIdx = 0;
+                const half = Math.floor(this.numTaps / 2);
+                for(let i = 0; i < this.numTaps; i++){
+                    let n = i - half;
+                    if(n % 2 !== 0) this.h[i] = 2.0 / (Math.PI * n);
+                    // 加上 Hamming window 減少截斷效應
+                    this.h[i] *= (0.54 - 0.46 * Math.cos(2 * Math.PI * i / (this.numTaps - 1)));
+                }
+            }
+            process(inputs, outputs) {
+                const input = inputs[0][0];
+                const output = outputs[0][0];
+                if (!input || !output) return true;
+                
+                const phaseInc = this.shiftHz / this.sampleRate;
+                const half = Math.floor(this.numTaps / 2);
+
+                for (let i = 0; i < input.length; i++) {
+                    this.delayLine[this.delayIdx] = input[i];
+
+                    // FIR 捲積計算虛部 (Imaginary)
+                    let imag = 0;
+                    for(let j = 0; j < this.numTaps; j++) {
+                        let idx = this.delayIdx - j;
+                        if(idx < 0) idx += this.numTaps;
+                        imag += this.delayLine[idx] * this.h[j];
+                    }
+
+                    // 取延遲的原始訊號作為實部 (Real)
+                    let realIdx = this.delayIdx - half;
+                    if(realIdx < 0) realIdx += this.numTaps;
+                    let real = this.delayLine[realIdx];
+
+                    // 震盪器與單邊帶調變 (SSB = Real * cos - Imag * sin)
+                    this.phase += phaseInc;
+                    if (this.phase >= 1.0) this.phase -= 1.0;
+                    if (this.phase <= -1.0) this.phase += 1.0;
+                    
+                    let cos = Math.cos(2 * Math.PI * this.phase);
+                    let sin = Math.sin(2 * Math.PI * this.phase);
+
+                    output[i] = real * cos - imag * sin;
+
+                    this.delayIdx = (this.delayIdx + 1) % this.numTaps;
+                }
+                return true;
+            }
+        }
+        registerProcessor('fs-ht-processor', FsHtProcessor);
+
+        // --- 3. PS-FFT 引擎 (Phase Vocoder 輕量版) ---
+        class PsFftProcessor extends AudioWorkletProcessor {
+            constructor() {
+                super();
+                this.pitchRatio = 1.0;
+                
+                this.port.onmessage = (e) => {
+                    if (e.data.pitchRatio !== undefined) {
+                        this.pitchRatio = Math.max(0.1, Math.min(e.data.pitchRatio, 4.0));
+                    }
+                };
+                
+                this.bufferSize = 4096; 
+                this.buffer = new Float32Array(this.bufferSize);
+                this.writePos = 0;
+                this.phase = 0;
+            }
+            process(inputs, outputs) {
+                const input = inputs[0][0];
+                const output = outputs[0][0];
+                if (!input || !output) return true;
+                
+                const grainSize = 2048; 
+                const rate = (1.0 - this.pitchRatio) / grainSize;
+
+                for (let i = 0; i < input.length; i++) {
+                    this.buffer[this.writePos] = input[i];
+                    
+                    this.phase += rate;
+                    if (this.phase >= 1.0) this.phase -= 1.0;
+                    if (this.phase < 0.0) this.phase += 1.0;
+                    
+                    let outSample = 0;
+                    for (let o = 0; o < 2; o++) {
+                        let p = (this.phase + o / 2) % 1.0;
+                        let delay = p * grainSize;
+                        let readPos = this.writePos - delay;
+                        if (readPos < 0) readPos += this.bufferSize;
+                        
+                        let win = 0.5 - 0.5 * Math.cos(2 * Math.PI * p);
+                        outSample += this.buffer[Math.floor(readPos)] * win;
+                    }
+                    
+                    output[i] = outSample;
+                    this.writePos = (this.writePos + 1) % this.bufferSize;
+                }
+                return true;
+            }
+        }
+        registerProcessor('ps-fft-processor', PsFftProcessor);
+
+        // --- 4. 專業級 WASM 相位聲碼器架構 (與高品質 4-Overlap Fallback，相容舊版全域開關) ---
         class WasmPhaseVocoderProcessor extends AudioWorkletProcessor {
             constructor() {
                 super();
@@ -647,12 +777,12 @@
             const selects = [ { el: document.getElementById('selInputMode'), type: 'home' }, { el: document.getElementById('selAnaInputMode'), type: 'ana' } ];
             selects.forEach(({el, type}) => {
                 if (!el) return;
-                el.innerHTML = '<option value="default">🎤輸入：系統預設</option>';
+                el.innerHTML = '<option value="default">�輸入：系統預設</option>';
                 audioInputDevices.forEach((device, index) => {
                     const label = device.label || `外接裝置/麥克風 ${index + 1}`;
                     if (device.deviceId && device.deviceId !== 'default' && device.deviceId !== 'communications') {
                         const opt = document.createElement('option');
-                        opt.value = device.deviceId; opt.textContent = `🎤輸入：${label}`; el.appendChild(opt);
+                        opt.value = device.deviceId; opt.textContent = `�輸入：${label}`; el.appendChild(opt);
                     }
                 });
                 
@@ -716,6 +846,8 @@
         /* ========================================== */
         /* --- Utils: Tab Switching ---               */
         /* ========================================== */
+        let isTestKeepPlaying = false; 
+
         function triggerCanvasResize() { setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 50); }
 
         function switchTab(tabId) {
@@ -732,7 +864,12 @@
             triggerCanvasResize();
 
             if (tabId !== 'audio-test' && typeof isTestPlaying !== 'undefined' && isTestPlaying) {
-                AppLogger.verbose("UI", "Stopping audio test due to tab switch"); stopTestAudio();
+                if (!isTestKeepPlaying) {
+                    AppLogger.verbose("UI", "Stopping audio test due to tab switch"); 
+                    stopTestAudio();
+                } else {
+                    AppLogger.info("UI", "Keeping audio test playing in background for cross-tab testing");
+                }
             }
         }
 
@@ -807,14 +944,27 @@
 
                 if (freqType !== 'none' && context.audioWorkletModuleLoaded) {
                     let targetRatio = 1.0; let tStart = fStart; let tEnd = fEnd;
+                    let processorName = isWasmEngine ? 'wasm-phase-vocoder-processor' : 'pitch-shift-processor';
+                    let shiftVal = 0;
 
-                    if (freqType === 'shift') {
-                        const shiftVal = parseFloat(row.querySelector('.freq-shift-val').value); const centerFreq = Math.max(100, (fStart + fEnd) / 2);
-                        targetRatio = 1.0 + (shiftVal / centerFreq); tStart = Math.max(20, fStart + shiftVal); tEnd = Math.max(20, fEnd + shiftVal);
+                    if (freqType.startsWith('shift')) {
+                        shiftVal = parseFloat(row.querySelector('.freq-shift-val').value); 
+                        const centerFreq = Math.max(100, (fStart + fEnd) / 2);
+                        targetRatio = 1.0 + (shiftVal / centerFreq); 
+                        tStart = Math.max(20, fStart + shiftVal); 
+                        tEnd = Math.max(20, fEnd + shiftVal);
+                        
+                        // 依照下拉選單選擇精確引擎 (WASM 開關在此處作為 GS 模式的覆寫)
+                        if (freqType === 'shift_gs') processorName = isWasmEngine ? 'wasm-phase-vocoder-processor' : 'pitch-shift-processor';
+                        if (freqType === 'shift_ht') processorName = 'fs-ht-processor';
+                        if (freqType === 'shift_fft') processorName = 'ps-fft-processor';
                     } else {
-                        tStart = parseFloat(row.querySelector('.freq-target-start').value); tEnd = parseFloat(row.querySelector('.freq-target-end').value);
+                        tStart = parseFloat(row.querySelector('.freq-target-start').value);  tEnd = parseFloat(row.querySelector('.freq-target-end').value);
                         targetRatio = Math.max(0.1, (tEnd - tStart) / (fEnd - fStart));
                         if (freqType === 'scale_curve') targetRatio *= 1.15; if (freqType === 'scale_inv_curve') targetRatio *= 0.85;
+                        
+                        // Scale 模式共用 GS 引擎或 WASM 引擎
+                        processorName = isWasmEngine ? 'wasm-phase-vocoder-processor' : 'pitch-shift-processor';
                     }
                     
                     const lpOriginal1 = context.createBiquadFilter(); lpOriginal1.type = 'lowpass'; lpOriginal1.frequency.value = fStart;
@@ -824,8 +974,13 @@
                     const hpBand = context.createBiquadFilter(); hpBand.type = 'highpass'; hpBand.frequency.value = fStart;
                     const lpBand = context.createBiquadFilter(); lpBand.type = 'lowpass'; lpBand.frequency.value = fEnd;
 
-                    const processorName = isWasmEngine ? 'wasm-phase-vocoder-processor' : 'pitch-shift-processor';
-                    const pitchShifter = new AudioWorkletNode(context, processorName); pitchShifter.port.postMessage({ pitchRatio: targetRatio });
+                    const pitchShifter = new AudioWorkletNode(context, processorName); 
+                    
+                    if (processorName === 'fs-ht-processor') {
+                        pitchShifter.port.postMessage({ shiftHz: shiftVal, sampleRate: context.sampleRate });
+                    } else {
+                        pitchShifter.port.postMessage({ pitchRatio: targetRatio });
+                    }
                     
                     const hpTarget = context.createBiquadFilter(); hpTarget.type = 'highpass'; hpTarget.frequency.value = tStart;
                     const lpTarget = context.createBiquadFilter(); lpTarget.type = 'lowpass'; lpTarget.frequency.value = tEnd;
@@ -844,7 +999,7 @@
             
             let muteNode = null;
             if (isOutputMuted !== null) {
-                // 🌟 修正點 1：正確處理 Boolean 變數
+                // � 修正點 1：正確處理 Boolean 變數
                 muteNode = context.createGain();
                 muteNode.gain.value = isOutputMuted ? 0 : 1;
                 currentNode.connect(muteNode);
@@ -1031,34 +1186,6 @@
         let isApplyingConfig = false; 
         let bandIdCounter = 0;
 
-        function safeDisconnect(node) {
-            if (node) { try { node.disconnect(); } catch(e){} }
-        }
-
-        window.addEventListener('DOMContentLoaded', () => {
-            const savedConfigs = localStorage.getItem('pwa_audio_configs');
-            if (savedConfigs) { try { configDict = JSON.parse(savedConfigs); } catch (e) { configDict = {}; } }
-            const savedCounter = localStorage.getItem('pwa_audio_config_counter');
-            if (savedCounter) configCounter = parseInt(savedCounter, 10);
-
-            updateHomeSelect();
-
-            if (!configDict['預存變更']) {
-                configDict['預存變更'] = getCurrentSettings();
-                saveConfigToStorage();
-            }
-            applySettings(configDict['預存變更']);
-            stopSpectrumAnimation('spectrumCanvas', mainSpecRef);
-            
-            ana_configDict = JSON.parse(JSON.stringify(configDict));
-            ana_updateConfigSelect();
-            ana_applySettings(ana_configDict['預存變更']);
-            stopSpectrumAnimation('anaSpectrumCanvas', anaSpecRef);
-
-            setupSpectrumGestures(document.getElementById('spectrumCanvas'), mainSpecRef);
-            setupSpectrumGestures(document.getElementById('anaSpectrumCanvas'), anaSpecRef);
-        });
-
         function saveConfigToStorage() {
             localStorage.setItem('pwa_audio_configs', JSON.stringify(configDict));
             localStorage.setItem('pwa_audio_config_counter', configCounter.toString());
@@ -1114,6 +1241,30 @@
             else sel.value = '預存變更';
         }
 
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedConfigs = localStorage.getItem('pwa_audio_configs');
+            if (savedConfigs) { try { configDict = JSON.parse(savedConfigs); } catch (e) { configDict = {}; } }
+            const savedCounter = localStorage.getItem('pwa_audio_config_counter');
+            if (savedCounter) configCounter = parseInt(savedCounter, 10);
+
+            updateHomeSelect();
+
+            if (!configDict['預存變更']) {
+                configDict['預存變更'] = getCurrentSettings();
+                saveConfigToStorage();
+            }
+            applySettings(configDict['預存變更']);
+            stopSpectrumAnimation('spectrumCanvas', mainSpecRef);
+            
+            ana_configDict = JSON.parse(JSON.stringify(configDict));
+            ana_updateConfigSelect();
+            ana_applySettings(ana_configDict['預存變更']);
+            stopSpectrumAnimation('anaSpectrumCanvas', anaSpecRef);
+
+            setupSpectrumGestures(document.getElementById('spectrumCanvas'), mainSpecRef);
+            setupSpectrumGestures(document.getElementById('anaSpectrumCanvas'), anaSpecRef);
+        });
+
         function createBandElement(id, b) {
             const div = document.createElement('div');
             div.className = 'band-row';
@@ -1125,7 +1276,8 @@
             const volType = b ? (b.volType || (b.type ? b.type : 'none')) : 'none';
             const gStart = b ? (b.gStart || 1.0) : 1.0;
             const gEnd = b ? (b.gEnd || 2.0) : 2.0;
-            const freqType = b ? (b.freqType || 'none') : 'none';
+            let freqType = b ? (b.freqType || 'none') : 'none';
+            if (freqType === 'shift') freqType = 'shift_gs'; // 向下相容
             const freqShiftVal = b ? (b.freqShiftVal || '500') : '500';
             const freqTargetStart = b ? (b.freqTargetStart || '2000') : '2000';
             const freqTargetEnd = b ? (b.freqTargetEnd || '5000') : '5000';
@@ -1165,17 +1317,19 @@
                     <div><strong style="color:#28a745;">【音頻區】</strong> <strong style="margin-left: 5px;">模式:</strong></div>
                     <select class="freq-type" style="padding: 5px;" onchange="handleFreqTypeChange(this, true, false)">
                         <option value="none" ${freqType==='none'?'selected':''}>無 (不調整)</option>
-                        <option value="shift" ${freqType==='shift'?'selected':''}>定量增益</option>
+                        <option value="shift_gs" ${freqType==='shift_gs'?'selected':''}>FS-GS 增益 (顆粒合成)</option>
+                        <option value="shift_ht" ${freqType==='shift_ht'?'selected':''}>FS-HT 增益 (希爾伯特)</option>
+                        <option value="shift_fft" ${freqType==='shift_fft'?'selected':''}>PS-FFT 增益 (聲碼器)</option>
                         <option value="scale_linear" ${freqType==='scale_linear'?'selected':''}>等量縮放</option>
                         <option value="scale_curve" ${freqType==='scale_curve'?'selected':''}>整曲線縮放</option>
                         <option value="scale_inv_curve" ${freqType==='scale_inv_curve'?'selected':''}>反曲線縮放</option>
                     </select>
                     <div class="freq-params" style="display:${freqType==='none'?'none':'inline-flex'}; align-items: center; gap: 5px; margin-left: auto;">
                         <strong style="display:${freqType==='none'?'none':'inline'}">調頻:</strong>
-                        <span class="freq-shift-ui" style="display:${freqType==='shift'?'inline-block':'none'};">
+                        <span class="freq-shift-ui" style="display:${freqType.startsWith('shift')?'inline-block':'none'};">
                             <input type="number" class="freq-shift-val" value="${freqShiftVal}" style="width: 65px; padding: 5px;"> Hz
                         </span>
-                        <span class="freq-scale-ui" style="display:${freqType!=='none'&&freqType!=='shift'?'inline-block':'none'};">
+                        <span class="freq-scale-ui" style="display:${freqType!=='none'&&!freqType.startsWith('shift')?'inline-block':'none'};">
                             目標 <input type="number" class="freq-target-start" value="${freqTargetStart}" style="width: 65px; padding: 5px;"> ~
                             <input type="number" class="freq-target-end" value="${freqTargetEnd}" style="width: 65px; padding: 5px;"> Hz
                         </span>
@@ -1214,7 +1368,7 @@
                 freqParams.style.display = 'none';
             } else {
                 freqParams.style.display = 'inline-flex';
-                if (val === 'shift') {
+                if (val.startsWith('shift')) {
                     shiftUi.style.display = 'inline-block';
                     scaleUi.style.display = 'none';
                 } else {
@@ -1278,6 +1432,10 @@
             }
             rebuildAudioPipeline();
             isApplyingConfig = false; 
+        }
+
+        function safeDisconnect(node) {
+            if (node) { try { node.disconnect(); } catch(e){} }
         }
 
         function rebuildAudioPipeline() {
@@ -1480,7 +1638,9 @@
         let ana_mediaStream;
         const ana_audioElement = document.getElementById('anaAudioPlayer'); 
         let ana_fileSourceNode = null;
+        let ana_testOscillator = null; 
         let ana_isPlaying = false;
+        let ana_isTestingTone = false;
         let ana_isMuted = false;
         
         let ana_inputAnalyser = null;
@@ -1514,7 +1674,8 @@
             const volType = b ? (b.volType || (b.type ? b.type : 'none')) : 'none';
             const gStart = b ? (b.gStart || 1.0) : 1.0;
             const gEnd = b ? (b.gEnd || 2.0) : 2.0;
-            const freqType = b ? (b.freqType || 'none') : 'none';
+            let freqType = b ? (b.freqType || 'none') : 'none';
+            if (freqType === 'shift') freqType = 'shift_gs'; // 向下相容
             const freqShiftVal = b ? (b.freqShiftVal || '500') : '500';
             const freqTargetStart = b ? (b.freqTargetStart || '2000') : '2000';
             const freqTargetEnd = b ? (b.freqTargetEnd || '5000') : '5000';
@@ -1557,16 +1718,18 @@
                         <strong style="color:#28a745;">【音頻】</strong>
                         <select class="freq-type" onchange="handleFreqTypeChange(this, true, true)">
                             <option value="none" ${freqType==='none'?'selected':''}>無 (不調整)</option>
-                            <option value="shift" ${freqType==='shift'?'selected':''}>增益</option>
+                            <option value="shift_gs" ${freqType==='shift_gs'?'selected':''}>FS-GS 增益 (顆粒)</option>
+                            <option value="shift_ht" ${freqType==='shift_ht'?'selected':''}>FS-HT 增益 (單邊帶)</option>
+                            <option value="shift_fft" ${freqType==='shift_fft'?'selected':''}>PS-FFT 增益 (聲碼器)</option>
                             <option value="scale_linear" ${freqType==='scale_linear'?'selected':''}>等量</option>
                             <option value="scale_curve" ${freqType==='scale_curve'?'selected':''}>整曲</option>
                             <option value="scale_inv_curve" ${freqType==='scale_inv_curve'?'selected':''}>反曲</option>
                         </select>
                         <div class="freq-params" style="display:${freqType==='none'?'none':'inline-flex'}; align-items: center; gap: 4px; margin-left: 5px;">
-                            <span class="freq-shift-ui" style="display:${freqType==='shift'?'inline-block':'none'};">
+                            <span class="freq-shift-ui" style="display:${freqType.startsWith('shift')?'inline-block':'none'};">
                                 <input type="number" class="freq-shift-val" value="${freqShiftVal}" style="width: 50px;">Hz
                             </span>
-                            <span class="freq-scale-ui" style="display:${freqType!=='none'&&freqType!=='shift'?'inline-block':'none'};">
+                            <span class="freq-scale-ui" style="display:${freqType!=='none'&&!freqType.startsWith('shift')?'inline-block':'none'};">
                                 <input type="number" class="freq-target-start" value="${freqTargetStart}" style="width: 50px;">~
                                 <input type="number" class="freq-target-end" value="${freqTargetEnd}" style="width: 50px;">Hz
                             </span>
@@ -1679,7 +1842,7 @@
             ana_eqNodes.forEach(safeDisconnect);
             ana_pitchNodes.forEach(safeDisconnect);
             
-            // 🌟 修復 1：傳入 Boolean 型別的 ana_isMuted，完美解決「切換前沒聲音」的問題
+            // � 修復 1：傳入 Boolean 型別的 ana_isMuted，完美解決「切換前沒聲音」的問題
             const pipeline = setupAudioPipeline(ana_audioCtx, ana_sourceNode, document.getElementById('anaVolumeSlider').value, '#anaBandsContainer .ana-band-row', ana_isSoftwareNoiseOn, ana_isMuted, ana_isWasmEngineOn);
             ana_inputAnalyser = pipeline.inAnalyser;
             ana_outputAnalyser = pipeline.outAnalyser;
@@ -1731,7 +1894,7 @@
         document.getElementById('btnAnaToggleOutput').addEventListener('click', () => {
             ana_isMuted = !ana_isMuted;
             const btn = document.getElementById('btnAnaToggleOutput');
-            btn.innerHTML = ana_isMuted ? '🔊播放輸出: 關' : '🔊播放輸出: 開';
+            btn.innerHTML = ana_isMuted ? '�播放輸出: 關' : '�播放輸出: 開';
             btn.className = ana_isMuted ? 'btn btn-secondary' : 'btn btn-success';
             if (ana_muteNode) ana_muteNode.gain.value = ana_isMuted ? 0 : 1;
         });
@@ -1794,17 +1957,27 @@
                 ana_audioElement.load(); 
             }
             
+            if (ana_testOscillator) {
+                try { ana_testOscillator.stop(); } catch(e){}
+                safeDisconnect(ana_testOscillator);
+                ana_testOscillator = null;
+            }
+            
             if (ana_audioCtx && ana_audioCtx.state === 'running') {
                 ana_audioCtx.suspend();
             }
             
             document.getElementById('btnAnaToggleRecord').innerHTML = '▶<br>開始收音';
             document.getElementById('btnAnaToggleRecord').className = 'btn btn-primary btn-square';
-            document.getElementById('btnAnaImportFile').innerHTML = '📂<br>匯入音檔';
+            document.getElementById('btnAnaImportFile').innerHTML = '�<br>匯入音檔';
             document.getElementById('btnAnaImportFile').className = 'btn btn-info btn-square';
+            
+            document.getElementById('btnAnaTestTone').innerHTML = '�<br>內建測試';
+            document.getElementById('btnAnaTestTone').className = 'btn btn-warning btn-square';
             
             document.getElementById('anaFileInput').value = '';
             ana_isPlaying = false;
+            ana_isTestingTone = false;
         }
 
         document.getElementById('btnAnaToggleRecord').addEventListener('click', async () => {
@@ -1838,7 +2011,38 @@
             } else stopAnaAudio();
         });
 
-        // 🌟 修正點 2：Safari 使用者手勢防阻擋核心機制
+        document.getElementById('btnAnaTestTone').addEventListener('click', async () => {
+            if (!ana_isPlaying) {
+                try {
+                    AppLogger.info("AnaTestTone", "Starting Internal Digital Test Tone (1000Hz)");
+                    await initAnaContext();
+                    
+                    if (ana_testOscillator) {
+                        try { ana_testOscillator.stop(); } catch(e){}
+                        safeDisconnect(ana_testOscillator);
+                    }
+                    
+                    ana_testOscillator = ana_audioCtx.createOscillator();
+                    ana_testOscillator.type = 'sine';
+                    ana_testOscillator.frequency.value = 1000;
+                    ana_testOscillator.start();
+                    
+                    ana_sourceNode = ana_testOscillator;
+                    
+                    ana_rebuildAudioPipeline(); 
+                    anaSpecRef.ctx = ana_audioCtx; anaSpecRef.inAna = ana_inputAnalyser; anaSpecRef.outAna = ana_outputAnalyser;
+                    startSpectrumAnimation('anaSpectrumCanvas', anaSpecRef); 
+
+                    document.getElementById('btnAnaTestTone').innerHTML = '■<br>停止測試';
+                    document.getElementById('btnAnaTestTone').className = 'btn btn-danger btn-square';
+                    ana_isPlaying = true;
+                    ana_isTestingTone = true;
+                } catch (err) { 
+                    AppLogger.error("AnaTestTone", "Failed to start test tone", err);
+                }
+            } else stopAnaAudio();
+        });
+
         document.getElementById('btnAnaImportFile').addEventListener('click', () => {
             if (!ana_isPlaying) {
                 // 利用按鈕點擊的瞬間啟動 AudioContext，並執行 load() 來拿取授權權杖
@@ -1865,7 +2069,7 @@
                 AppLogger.verbose("FileImport", "Executing synchronous play() to capture user gesture token...");
                 const playPromise = ana_audioElement.play();
                 
-                // 🌟 Safari 自動恢復機制：若阻擋播放，由輕觸畫面接手
+                // � Safari 自動恢復機制：若阻擋播放，由輕觸畫面接手
                 if (playPromise !== undefined) {
                     playPromise.catch(err => {
                         AppLogger.error("FileImport", "Audio play() rejected, activating fallback", err);
@@ -1970,6 +2174,14 @@
         const testVolDisplay = document.getElementById('testVolDisplay');
         const testWaveType = document.getElementById('testWaveType');
         const testPlayBtn = document.getElementById('testPlayBtn');
+
+        document.getElementById('btnTestKeepPlaying').addEventListener('click', () => {
+            isTestKeepPlaying = !isTestKeepPlaying;
+            const btn = document.getElementById('btnTestKeepPlaying');
+            btn.textContent = isTestKeepPlaying ? '跨分頁持續播放 (開)' : '跨分頁持續播放 (關)';
+            btn.className = isTestKeepPlaying ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-secondary';
+            AppLogger.info("TestAudio", "Cross-tab background playback toggled", isTestKeepPlaying);
+        });
 
         function stopTestAudio() {
             if (testGainNode && testAudioCtx) {
