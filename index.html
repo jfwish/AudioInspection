@@ -7,20 +7,22 @@
     <link rel="manifest" href="manifest.json">
     <style>
         /* --- 基礎重置與 iOS 滿版鎖定 --- */
-        body, html { 
-            margin: 0; padding: 0; 
-            background-color: #f5f5f7; 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            width: 100%; height: 100%; 
-            overflow: hidden; 
+        body, html {
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f7;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
         }
-        
+
         /* --- 預設 (直立/一般) 版面佈局 --- */
-        .app-container { 
-            display: flex; 
-            flex-direction: column; 
-            width: 100%; 
-            height: 100%; 
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
             box-sizing: border-box;
             padding-top: env(safe-area-inset-top, 0px);
             padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -28,93 +30,474 @@
             padding-right: env(safe-area-inset-right, 0px);
         }
 
-        .tab-nav { 
-            display: flex; flex-direction: row; 
-            border-bottom: 2px solid #ccc; background: #f5f5f7; z-index: 50; 
-            flex-shrink: 0; 
+        .tab-nav {
+            display: flex;
+            flex-direction: row;
+            border-bottom: 2px solid #ccc;
+            background: #f5f5f7;
+            z-index: 50;
+            flex-shrink: 0;
         }
-        .tab-btn { flex: 1; padding: 15px 5px; background: none; border: none; font-size: 16px; cursor: pointer; outline: none; border-bottom: 3px solid transparent; color: #555; transition: all 0.2s; white-space: nowrap; writing-mode: horizontal-tb; text-align: center; }
-        .tab-btn.active { font-weight: bold; border-bottom: 3px solid #007bff; color: #007bff; }
-        
-        .content-area { 
-            flex-grow: 1; 
-            padding: 20px; 
-            box-sizing: border-box; 
-            overflow-y: auto; 
+
+        .tab-btn {
+            flex: 1;
+            padding: 15px 5px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            outline: none;
+            border-bottom: 3px solid transparent;
+            color: #555;
+            transition: all 0.2s;
+            white-space: nowrap;
+            writing-mode: horizontal-tb;
+            text-align: center;
+        }
+
+        .tab-btn.active {
+            font-weight: bold;
+            border-bottom: 3px solid #007bff;
+            color: #007bff;
+        }
+
+        .content-area {
+            flex-grow: 1;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
             -webkit-overflow-scrolling: touch;
         }
-        
+
         /* --- 聲音分析 (水平) 版面切換模式 --- */
-        body.analysis-mode .app-container { flex-direction: row; }
-        body.analysis-mode .tab-nav { flex-direction: column; width: 60px; border-bottom: none; border-right: 2px solid #ccc; padding-top: 10px; background: #fff; }
-        body.analysis-mode .tab-btn { writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 4px; padding: 10px 0; margin: 5px auto; border-bottom: none; border-left: 3px solid transparent; max-height: 150px; }
-        body.analysis-mode .tab-btn.active { border-left: 4px solid #007bff; border-bottom: none; background-color: #f0f8ff; }
-        body.analysis-mode .content-area { padding: 0; overflow: hidden; }
+        body.analysis-mode .app-container {
+            flex-direction: row;
+        }
+
+        body.analysis-mode .tab-nav {
+            flex-direction: column;
+            width: 60px;
+            border-bottom: none;
+            border-right: 2px solid #ccc;
+            padding-top: 10px;
+            background: #fff;
+        }
+
+        body.analysis-mode .tab-btn {
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            letter-spacing: 4px;
+            padding: 10px 0;
+            margin: 5px auto;
+            border-bottom: none;
+            border-left: 3px solid transparent;
+            max-height: 150px;
+        }
+
+        body.analysis-mode .tab-btn.active {
+            border-left: 4px solid #007bff;
+            border-bottom: none;
+            background-color: #f0f8ff;
+        }
+
+        body.analysis-mode .content-area {
+            padding: 0;
+            overflow: hidden;
+        }
 
         /* --- 區塊顯示邏輯 --- */
-        .tab-content { display: none; }
-        .tab-content.active { display: block; height: 100%; }
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            height: 100%;
+        }
 
         /* --- UI 卡片與共用按鈕樣式 --- */
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .control-group { margin-bottom: 20px; }
-        .btn { padding: 10px 20px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; font-weight: bold;}
-        .btn-primary { background-color: #007bff; color: white; }
-        .btn-success { background-color: #28a745; color: white; }
-        .btn-danger { background-color: #dc3545; color: white; }
-        .btn-info { background-color: #17a2b8; color: white; }
-        .btn-warning { background-color: #ff8c00; color: white; } 
-        .btn-secondary { background-color: #6c757d; color: white; }
-        .btn-sm { padding: 8px 10px; font-size: 13px; margin: 0; width: 100%;}
-        .btn-square { display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; text-align: center; line-height: 1.2; box-sizing: border-box;}
-        .btn:disabled { background-color: #ccc; cursor: not-allowed; opacity: 0.6;}
-        .btn-large-toggle { width: 100%; font-size: 20px; padding: 15px; }
-        input[type=range] { width: 100%; margin: 10px 0; }
-        
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-info {
+            background-color: #17a2b8;
+            color: white;
+        }
+
+        .btn-warning {
+            background-color: #ff8c00;
+            color: white;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-sm {
+            padding: 8px 10px;
+            font-size: 13px;
+            margin: 0;
+            width: 100%;
+        }
+
+        .btn-square {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            text-align: center;
+            line-height: 1.2;
+            box-sizing: border-box;
+        }
+
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .btn-large-toggle {
+            width: 100%;
+            font-size: 20px;
+            padding: 15px;
+        }
+
+        input[type=range] {
+            width: 100%;
+            margin: 10px 0;
+        }
+
         /* --- 首頁: 頻段設定 UI --- */
-        .band-row { border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; background-color: #fafafa; min-width: 320px;}
-        .band-row input[type=number] { width: 70px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
-        .band-row input[type=number]:disabled { background-color: #e9ecef; color: #6c757d; border-color: #dee2e6; }
-        .band-row select { padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
-        
-        .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 15px; margin-bottom: 20px; }
+        .band-row {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            background-color: #fafafa;
+            min-width: 320px;
+        }
+
+        .band-row input[type=number] {
+            width: 70px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .band-row input[type=number]:disabled {
+            background-color: #e9ecef;
+            color: #6c757d;
+            border-color: #dee2e6;
+        }
+
+        .band-row select {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 15px;
+            margin-bottom: 20px;
+        }
 
         /* --- 音頻檢測專屬 UI --- */
-        #testFreqDisplay { font-size: 40px; color: #007aff; font-weight: bold; margin: 10px 0; text-align: center;}
-        .test-select { width: 100%; padding: 12px; border-radius: 8px; font-size: 16px; margin-bottom: 20px; border: 1px solid #ccc; background-color: #fff; }
-        .btn-play-test { background-color: #007aff; color: white; width: 100%; font-size: 20px; padding: 15px; }
-        .btn-stop-test { background-color: #ff3b30; color: white; width: 100%; font-size: 20px; padding: 15px; }
-        .btn-note { background-color: #e5e5ea; color: #333; padding: 10px 5px; flex: 1; text-align: center; font-size: 14px;}
-        .record-list { text-align: left; margin-top: 20px; }
-        .record-item { background: white; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #007aff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .record-time { color: #8e8e93; font-size: 12px; }
-        .label-text { font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px; text-align: left; color: #333; }
-        .age-marker-line { height: 8px; width: 2px; background: #999; margin: 0 auto 2px auto; }
-        .age-marker-text { font-size: 11px; font-weight: bold; line-height: 1.2;}
+        #testFreqDisplay {
+            font-size: 40px;
+            color: #007aff;
+            font-weight: bold;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        .test-select {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            background-color: #fff;
+        }
+
+        .btn-play-test {
+            background-color: #007aff;
+            color: white;
+            width: 100%;
+            font-size: 20px;
+            padding: 15px;
+        }
+
+        .btn-stop-test {
+            background-color: #ff3b30;
+            color: white;
+            width: 100%;
+            font-size: 20px;
+            padding: 15px;
+        }
+
+        .btn-note {
+            background-color: #e5e5ea;
+            color: #333;
+            padding: 10px 5px;
+            flex: 1;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .record-list {
+            text-align: left;
+            margin-top: 20px;
+        }
+
+        .record-item {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid #007aff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .record-time {
+            color: #8e8e93;
+            font-size: 12px;
+        }
+
+        .label-text {
+            font-weight: bold;
+            font-size: 14px;
+            display: block;
+            margin-bottom: 5px;
+            text-align: left;
+            color: #333;
+        }
+
+        .age-marker-line {
+            height: 8px;
+            width: 2px;
+            background: #999;
+            margin: 0 auto 2px auto;
+        }
+
+        .age-marker-text {
+            font-size: 11px;
+            font-weight: bold;
+            line-height: 1.2;
+        }
 
         /* --- 聲音分析專屬: 懸浮橫幅視窗 (Overlay) --- */
-        #anaOverlayWrapper { position: absolute; top: 10px; left: 10px; right: 10px; z-index: 100; display: flex; align-items: flex-start; pointer-events: none;}
-        #anaOverlayContent { flex-grow: 1; background: rgba(255,255,255,0.95); border-radius: 12px 0 0 12px; display: flex; align-items: stretch; overflow-x: auto; gap: 20px; padding: 10px 20px; box-shadow: -4px 4px 15px rgba(0,0,0,0.15); transition: width 0.3s, opacity 0.3s; width: 100%; opacity: 1; pointer-events: auto; border: 1px solid #eee;}
-        #anaOverlayWrapper.collapsed #anaOverlayContent { width: 0; padding: 0; opacity: 0; overflow: hidden; border: none;}
-        #anaOverlayToggle { width: 40px; background: #343a40; color: white; border: none; border-radius: 0 12px 12px 0; box-shadow: 4px 4px 15px rgba(0,0,0,0.15); cursor: pointer; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; text-orientation: upright; font-weight: bold; letter-spacing: 2px; transition: background 0.3s; pointer-events: auto; align-self: stretch;}
-        #anaOverlayToggle:hover { background: #495057; }
-        
+        #anaOverlayWrapper {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            z-index: 100;
+            display: flex;
+            align-items: flex-start;
+            pointer-events: none;
+        }
+
+        #anaOverlayContent {
+            flex-grow: 1;
+            background: rgba(255,255,255,0.95);
+            border-radius: 12px 0 0 12px;
+            display: flex;
+            align-items: stretch;
+            overflow-x: auto;
+            gap: 20px;
+            padding: 10px 20px;
+            box-shadow: -4px 4px 15px rgba(0,0,0,0.15);
+            transition: width 0.3s, opacity 0.3s;
+            width: 100%;
+            opacity: 1;
+            pointer-events: auto;
+            border: 1px solid #eee;
+        }
+
+        #anaOverlayWrapper.collapsed #anaOverlayContent {
+            width: 0;
+            padding: 0;
+            opacity: 0;
+            overflow: hidden;
+            border: none;
+        }
+
+        #anaOverlayToggle {
+            width: 40px;
+            background: #343a40;
+            color: white;
+            border: none;
+            border-radius: 0 12px 12px 0;
+            box-shadow: 4px 4px 15px rgba(0,0,0,0.15);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            font-weight: bold;
+            letter-spacing: 2px;
+            transition: background 0.3s;
+            pointer-events: auto;
+            align-self: stretch;
+        }
+
+        #anaOverlayToggle:hover {
+            background: #495057;
+        }
+
         /* --- 分析頁面專屬: 超緊湊版頻段 UI --- */
-        .ana-band-row { border: 1px solid #ddd; padding: 8px 12px; border-radius: 6px; background-color: #fafafa; min-width: 380px; font-size: 12px; display: flex; flex-direction: column; gap: 6px; justify-content: center;}
-        .ana-band-row input[type=number] { padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px;}
-        .ana-band-row select { padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px;}
-        
-        .ana-divider { width: 1px; align-self: stretch; background-color: #ccc; flex-shrink: 0; margin: 0; }
+        .ana-band-row {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            border-radius: 6px;
+            background-color: #fafafa;
+            min-width: 380px;
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            justify-content: center;
+        }
+
+        .ana-band-row input[type=number] {
+            padding: 2px 4px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .ana-band-row select {
+            padding: 2px 4px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .ana-divider {
+            width: 1px;
+            align-self: stretch;
+            background-color: #ccc;
+            flex-shrink: 0;
+            margin: 0;
+        }
 
         /* --- 自訂對話框與 Toast --- */
-        #customDialogOverlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; }
-        .custom-dialog { background:#fff; padding:20px; border-radius:12px; display:flex; align-items:center; gap:10px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); flex-wrap: wrap; justify-content: center; max-width: 90%; }
-        #toastMsg { display:none; position:fixed; top:20%; left:50%; transform:translate(-50%, -50%); background:rgba(0,0,0,0.8); color:white; padding:12px 24px; border-radius:8px; z-index:10000; font-size:16px; font-weight:bold; }
-        
+        #customDialogOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .custom-dialog {
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 90%;
+        }
+
+        #toastMsg {
+            display: none;
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            z-index: 10000;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
         /* --- 除錯器專屬樣式 --- */
-        .debug-panel { background: #222; color: #0f0; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 11px; margin-top: 20px;}
-        .debug-textarea { width: 100%; height: 150px; background: transparent; color: inherit; border: 1px solid #555; outline: none; resize: vertical; margin-bottom: 10px; }
-        .debug-select { background: #333; color: #0f0; border: 1px solid #555; padding: 4px; border-radius: 4px; outline: none; font-size: 12px; }
+        .debug-panel {
+            background: #222;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 11px;
+            margin-top: 20px;
+        }
+
+        .debug-textarea {
+            width: 100%;
+            height: 150px;
+            background: transparent;
+            color: inherit;
+            border: 1px solid #555;
+            outline: none;
+            resize: vertical;
+            margin-bottom: 10px;
+        }
+
+        .debug-select {
+            background: #333;
+            color: #0f0;
+            border: 1px solid #555;
+            padding: 4px;
+            border-radius: 4px;
+            outline: none;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
@@ -134,7 +517,7 @@
 
     <!-- 全域版面容器 -->
     <div class="app-container">
-        
+
         <!-- 分頁導覽列 -->
         <div class="tab-nav">
             <button class="tab-btn active" onclick="switchTab('amplifier')">進階擴音器</button>
@@ -149,19 +532,19 @@
             <!-- 區塊 1：進階即時擴音器                       -->
             <!-- ========================================== -->
             <div id="amplifier" class="tab-content active">
-                
+
                 <div class="card">
                     <h2 style="margin-top: 0; text-align: center;">主控制面板</h2>
-                    
+
                     <div class="settings-grid">
                         <button id="btnSoftwareNoise" class="btn btn-sm btn-secondary">人聲降噪：關</button>
                         <button id="btnScreenWake" class="btn btn-sm btn-secondary">螢幕常亮(防暫停)：關</button>
                         <button id="btnHardwareNoise" class="btn btn-sm btn-secondary">降噪：關</button>
                         <button id="btnBackgroundKeep" class="btn btn-sm btn-secondary">防休眠(背景執行)：關</button>
-                        
+
                         <button id="btnEngineMode" class="btn btn-sm btn-secondary">移頻引擎：標準 JS</button>
                         <select id="selInputMode" class="btn btn-sm btn-secondary" style="text-align: center; appearance: none; font-weight: bold;">
-                            <option value="default" selected>�輸入：系統預設</option>
+                            <option value="default" selected>🎤輸入：系統預設</option>
                         </select>
                     </div>
 
@@ -205,11 +588,10 @@
                         <button id="btnAddBand" class="btn btn-secondary" style="width: 100%;">+ 新增頻段範圍</button>
                     </div>
                 </div>
-                
-                <!-- � 動態 UI 控制版全局日誌面板 � -->
+
                 <div class="card debug-panel" id="debugPanelUI">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <h3 style="margin: 0; color: #fff;">�️ 系統除錯 (Debug)</h3>
+                        <h3 style="margin: 0; color: #fff;">🛠️ 系統除錯 (Debug)</h3>
                         <select id="selDebugLevel" class="debug-select">
                             <option value="0">0: 關閉 (Off)</option>
                             <option value="1">1: 僅錯誤 (Err)</option>
@@ -217,19 +599,19 @@
                             <option value="3">3: 詳細追蹤 (Verb)</option>
                         </select>
                     </div>
-                    
+
                     <div id="debugContentWrapper" style="display: none;">
                         <textarea id="debugTextArea" class="debug-textarea" readonly></textarea>
                         <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-sm btn-secondary" onclick="AppLogger.copyToClipboard()">� 複製</button>
-                            <button class="btn btn-sm btn-info" onclick="AppLogger.shareLog()">� 分享/匯出檔</button>
-                            <button class="btn btn-sm btn-danger" onclick="AppLogger.clear()">�️ 清空</button>
+                            <button class="btn btn-sm btn-secondary" onclick="AppLogger.copyToClipboard()">📋 複製</button>
+                            <button class="btn btn-sm btn-info" onclick="AppLogger.shareLog()">📤 分享/匯出檔</button>
+                            <button class="btn btn-sm btn-danger" onclick="AppLogger.clear()">🗑️ 清空</button>
                         </div>
                         <p style="color: #888; font-size: 10px; margin-top: 8px; margin-bottom: 0;">註：分享功能可直接將日誌存入 Google Drive、iCloud 或透過 LINE 傳送以達雲端備份效果。</p>
                     </div>
                 </div>
 
-                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.28</p>
+                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.29</p>
             </div>
 
             <!-- ========================================== -->
@@ -239,17 +621,17 @@
                 <div class="card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                         <h2 style="margin-top: 0; margin-bottom: 0;">聽力頻率測試</h2>
-                        <!-- � 測試功能 1：跨分頁播放開關 -->
+                        <!-- 🌟 測試功能 1：跨分頁播放開關 -->
                         <button id="btnTestKeepPlaying" class="btn btn-sm btn-secondary" style="width: auto;">跨分頁持續播放 (關)</button>
                     </div>
-                    
+
                     <div id="testFreqDisplay">1000 Hz</div>
-                    
+
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
                         <label class="label-text" style="margin-bottom: 0;">測試頻率：</label>
                         <button id="btnToggleFreqMode" class="btn btn-sm btn-secondary" style="width: auto;">切換全頻段 (5~22000Hz)</button>
                     </div>
-                    
+
                     <input type="range" id="testFreqSlider" min="20" max="8000" step="1" value="1000">
                     <div id="freqRangeLabels" style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 15px;">
                         <span>20 Hz</span><span>8000 Hz</span>
@@ -320,11 +702,11 @@
             <!-- 區塊 3：聲音分析 (新版全螢幕儀表板)           -->
             <!-- ========================================== -->
             <div id="audio-analysis" class="tab-content" style="padding: 0; height: 100vh; overflow: hidden; position: relative;">
-                
+
                 <!-- 頂部懸浮控制橫幅 (Overlay) -->
                 <div id="anaOverlayWrapper" class="">
                     <div id="anaOverlayContent">
-                        
+
                         <!-- A. 主控制面板(縮減版) -->
                         <div style="min-width: 320px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; justify-content: center;">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -332,17 +714,17 @@
                                 <button id="btnAnaToggleMaxVol" class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px; white-space: nowrap; width: max-content; flex-shrink: 0;">上限: 5x</button>
                             </div>
                             <input type="range" id="anaVolumeSlider" min="0" max="5" step="0.1" value="1.0" style="margin:0; width: 100%;">
-                            
+
                             <div style="display: flex; gap: 5px; align-items: center; width: 100%;">
                                 <button id="btnAnaSoftwareNoise" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">人聲降噪：關</button>
                                 <button id="btnAnaHardwareNoise" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">降噪：關</button>
-                                <button id="btnAnaToggleOutput" class="btn btn-success" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">�播放輸出: 開</button>
+                                <button id="btnAnaToggleOutput" class="btn btn-success" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">🔊播放輸出: 開</button>
                             </div>
-                            
+
                             <div style="display: flex; gap: 5px; align-items: center; width: 100%;">
                                 <button id="btnAnaEngineMode" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">移頻引擎：標準 JS</button>
                                 <select id="selAnaInputMode" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; text-align: center; appearance: none; font-weight: bold;">
-                                    <option value="default" selected>�輸入：系統預設</option>
+                                    <option value="default" selected>🎤輸入：系統預設</option>
                                 </select>
                             </div>
                         </div>
@@ -353,13 +735,13 @@
                         <div class="ana-divider"></div>
 
                         <!-- C. 匯入音檔 (正方形) -->
-                        <button id="btnAnaImportFile" class="btn btn-info btn-square" style="width: 80px; height: 80px; font-size: 14px;">�<br>匯入音檔</button>
+                        <button id="btnAnaImportFile" class="btn btn-info btn-square" style="width: 80px; height: 80px; font-size: 14px;">📂<br>匯入音檔</button>
                         <!-- ⚠️ 擴充 accept 屬性：允許音檔與影片，明確指定副檔名以防 iOS 灰階禁用 -->
                         <input type="file" id="anaFileInput" accept="audio/*, video/*, .mp3, .wav, .m4a, .mp4, .mov" style="display: none;">
                         <div class="ana-divider"></div>
-                        
-                        <!-- � 測試功能 2：D. 內建測試音源 (正方形) -->
-                        <button id="btnAnaTestTone" class="btn btn-warning btn-square" style="width: 80px; height: 80px; font-size: 14px;">�<br>內建測試</button>
+
+                        <!-- 🌟 測試功能 2：D. 內建測試音源 (正方形) -->
+                        <button id="btnAnaTestTone" class="btn btn-warning btn-square" style="width: 80px; height: 80px; font-size: 14px;">🎵<br>內建測試</button>
                         <div class="ana-divider"></div>
 
                         <!-- E & F. 組態設定區 -->
@@ -406,126 +788,185 @@
 
     <script>
         /* ========================================================================= */
-        /* � 核心除錯常數與日誌系統 (動態 UI 調整版) �                                  */
+        /* 🌟 核心除錯常數與日誌系統 (動態 UI 調整版) 🌟                                  */
         /* ========================================================================= */
-        
+
         let DEBUG_LEVEL = parseInt(localStorage.getItem('pwa_debug_level') || '0', 10);
 
         const AppLogger = {
             logs: [],
             maxLogs: 1000,
-            
+
             init() {
                 try {
                     const saved = localStorage.getItem('pwa_audio_logs');
-                    if (saved) { this.logs = JSON.parse(saved); }
-                } catch(e) {}
-                
+                    if (saved) {
+                        this.logs = JSON.parse(saved);
+                    }
+                } catch (e) {
+                }
+
                 const sel = document.getElementById('selDebugLevel');
                 if (sel) {
                     sel.value = DEBUG_LEVEL.toString();
-                    sel.addEventListener('change', (e) => this.setLevel(parseInt(e.target.value, 10)));
+                    sel.addEventListener('change', (e) => {
+                        this.setLevel(parseInt(e.target.value, 10));
+                    });
                 }
                 this.updateUIVisibility();
                 this.updateText();
                 this.info("System", "AppLogger initialized. Current Debug Level: " + DEBUG_LEVEL);
             },
-            
+
             setLevel(level) {
                 DEBUG_LEVEL = level;
                 localStorage.setItem('pwa_debug_level', level.toString());
                 this.updateUIVisibility();
                 this.info("System", "Debug Level changed to: " + level);
             },
-            
+
             updateUIVisibility() {
                 const wrapper = document.getElementById('debugContentWrapper');
-                if (wrapper) wrapper.style.display = DEBUG_LEVEL === 0 ? 'none' : 'block';
-            },
-            
-            _log(level, type, tag, msg, data) {
-                if (level > DEBUG_LEVEL) return;
-                
-                const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: "numeric", minute: "numeric", second: "numeric", fractionalSecondDigits: 3 });
-                let logStr = `[${time}] [${type}] [${tag}] ${msg}`;
-                if (data !== undefined) {
-                    try { logStr += " | " + (typeof data === 'object' ? JSON.stringify(data) : String(data)); } 
-                    catch(e) { logStr += " | [Unserializable Data]"; }
+                if (wrapper) {
+                    wrapper.style.display = DEBUG_LEVEL === 0 ? 'none' : 'block';
                 }
+            },
+
+            _log(level, type, tag, msg, data) {
+                if (level > DEBUG_LEVEL) {
+                    return;
+                }
+
+                const time = new Date().toLocaleTimeString('en-US', {
+                    hour12: false,
+                    hour: "numeric",
+                    minute: "numeric",
+                    second: "numeric",
+                    fractionalSecondDigits: 3
+                });
+                let logStr = `[${time}] [${type}] [${tag}] ${msg}`;
                 
-                console.log(logStr); 
-                
+                if (data !== undefined) {
+                    try {
+                        logStr += " | " + (typeof data === 'object' ? JSON.stringify(data) : String(data));
+                    } catch (e) {
+                        logStr += " | [Unserializable Data]";
+                    }
+                }
+
+                console.log(logStr);
+
                 this.logs.push(logStr);
-                if (this.logs.length > this.maxLogs) this.logs.shift(); 
-                
+                if (this.logs.length > this.maxLogs) {
+                    this.logs.shift();
+                }
+
                 this.saveLocal();
                 this.updateText();
             },
-            
-            error(tag, msg, err) { this._log(1, "ERR", tag, msg, err ? (err.message || err) : ''); },
-            info(tag, msg, data) { this._log(2, "INF", tag, msg, data); },
-            verbose(tag, msg, data) { this._log(3, "VRB", tag, msg, data); },
-            
-            saveLocal() { try { localStorage.setItem('pwa_audio_logs', JSON.stringify(this.logs)); } catch(e){} },
-            
+
+            error(tag, msg, err) {
+                this._log(1, "ERR", tag, msg, err ? (err.message || err) : '');
+            },
+
+            info(tag, msg, data) {
+                this._log(2, "INF", tag, msg, data);
+            },
+
+            verbose(tag, msg, data) {
+                this._log(3, "VRB", tag, msg, data);
+            },
+
+            saveLocal() {
+                try {
+                    localStorage.setItem('pwa_audio_logs', JSON.stringify(this.logs));
+                } catch (e) {
+                }
+            },
+
             updateText() {
-                if (DEBUG_LEVEL === 0) return; 
+                if (DEBUG_LEVEL === 0) {
+                    return;
+                }
                 const ta = document.getElementById('debugTextArea');
                 if (ta) {
                     ta.value = this.logs.join('\n');
-                    ta.scrollTop = ta.scrollHeight; 
+                    ta.scrollTop = ta.scrollHeight;
                 }
             },
-            
+
             clear() {
-                this.logs = []; this.saveLocal(); this.updateText();
+                this.logs = [];
+                this.saveLocal();
+                this.updateText();
                 this.info("System", "Logs cleared.");
             },
-            
+
             copyToClipboard() {
                 const text = this.logs.join('\n');
                 if (navigator.clipboard) {
-                    navigator.clipboard.writeText(text).then(() => showToast('已複製到剪貼簿')).catch(e => this.error("Logger", "Copy failed", e));
+                    navigator.clipboard.writeText(text).then(() => {
+                        showToast('已複製到剪貼簿');
+                    }).catch(e => {
+                        this.error("Logger", "Copy failed", e);
+                    });
                 } else {
                     const ta = document.getElementById('debugTextArea');
-                    ta.select(); document.execCommand('copy'); showToast('已複製到剪貼簿');
+                    ta.select();
+                    document.execCommand('copy');
+                    showToast('已複製到剪貼簿');
                 }
             },
-            
+
             async shareLog() {
                 const text = this.logs.join('\n');
-                const file = new File([text], `AudioApp_Debug_Log_${new Date().getTime()}.txt`, { type: 'text/plain' });
-                
+                const file = new File([text], `AudioApp_Debug_Log_${new Date().getTime()}.txt`, {
+                    type: 'text/plain'
+                });
+
                 if (navigator.canShare && navigator.canShare({ files: [file] })) {
                     try {
-                        await navigator.share({ title: 'Audio App Debug Log', text: '請查看此除錯日誌檔案。', files: [file] });
+                        await navigator.share({
+                            title: 'Audio App Debug Log',
+                            text: '請查看此除錯日誌檔案。',
+                            files: [file]
+                        });
                         this.info("System", "Log shared successfully via Web Share API");
-                    } catch (e) { this.error("Logger", "Share API failed/cancelled", e); }
+                    } catch (e) {
+                        this.error("Logger", "Share API failed/cancelled", e);
+                    }
                 } else {
                     const url = URL.createObjectURL(file);
                     const a = document.createElement('a');
-                    a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+                    a.href = url;
+                    a.download = file.name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
                     this.info("System", "Log downloaded locally (Share API not supported)");
                     showToast('日誌檔案已下載');
                 }
             }
         };
 
-        window.addEventListener('DOMContentLoaded', () => { AppLogger.init(); });
+        window.addEventListener('DOMContentLoaded', () => {
+            AppLogger.init();
+        });
 
-        /* ========================================== */
-        /* --- 0. 輕量級與專業級 JS 移頻引擎架構         */
-        /* ========================================== */
+        /* ========================================================================= */
+        /* 🌟 [AudioWorklet] 三種調頻引擎核心實作 (FS-GS, FS-HT, PS-FFT)               */
+        /* ========================================================================= */
         const pitchShiftWorkletCode = `
-        // --- 1. FS-GS 引擎 (Granular Synthesis) ---
+        // 1. FS-GS 引擎 (Granular Synthesis) - 會有邊帶毛刺
         class PitchShiftProcessor extends AudioWorkletProcessor {
             constructor() {
                 super();
                 this.pitchRatio = 1.0;
-                this.bufferSize = 16384; 
+                this.bufferSize = 16384;
                 this.buffer = new Float32Array(this.bufferSize);
                 this.writePos = 0;
-                this.phase = 0; 
+                this.phase = 0;
                 
                 this.port.onmessage = (e) => {
                     if (e.data.pitchRatio !== undefined) {
@@ -536,17 +977,24 @@
             process(inputs, outputs) {
                 const input = inputs[0][0];
                 const output = outputs[0][0];
-                if (!input || !output) return true;
                 
-                const grainSize = 4096; 
+                if (!input || !output) {
+                    return true;
+                }
+                
+                const grainSize = 4096;
                 const rate = (1.0 - this.pitchRatio) / grainSize;
 
                 for (let i = 0; i < input.length; i++) {
                     this.buffer[this.writePos] = input[i];
                     
                     this.phase += rate;
-                    if (this.phase >= 1.0) this.phase -= 1.0;
-                    if (this.phase < 0.0) this.phase += 1.0;
+                    if (this.phase >= 1.0) {
+                        this.phase -= 1.0;
+                    }
+                    if (this.phase < 0.0) {
+                        this.phase += 1.0;
+                    }
                     
                     let phase1 = this.phase;
                     let phase2 = (this.phase + 0.5) % 1.0;
@@ -555,10 +1003,14 @@
                     let delay2 = phase2 * grainSize;
                     
                     let readPos1 = this.writePos - delay1;
-                    if (readPos1 < 0) readPos1 += this.bufferSize;
+                    if (readPos1 < 0) {
+                        readPos1 += this.bufferSize;
+                    }
                     
                     let readPos2 = this.writePos - delay2;
-                    if (readPos2 < 0) readPos2 += this.bufferSize;
+                    if (readPos2 < 0) {
+                        readPos2 += this.bufferSize;
+                    }
                     
                     let win1 = 0.5 - 0.5 * Math.cos(2 * Math.PI * phase1);
                     let win2 = 0.5 - 0.5 * Math.cos(2 * Math.PI * phase2);
@@ -575,7 +1027,7 @@
         }
         registerProcessor('pitch-shift-processor', PitchShiftProcessor);
 
-        // --- 2. FS-HT 引擎 (Hilbert Transform) - 完美單邊帶頻率平移 ---
+        // 2. FS-HT 引擎 (Hilbert Transform) - 完美單邊帶頻率平移，無毛刺
         class FsHtProcessor extends AudioWorkletProcessor {
             constructor() {
                 super();
@@ -584,8 +1036,12 @@
                 this.phase = 0;
                 
                 this.port.onmessage = (e) => {
-                    if (e.data.shiftHz !== undefined) this.shiftHz = e.data.shiftHz;
-                    if (e.data.sampleRate !== undefined) this.sampleRate = e.data.sampleRate;
+                    if (e.data.shiftHz !== undefined) {
+                        this.shiftHz = e.data.shiftHz;
+                    }
+                    if (e.data.sampleRate !== undefined) {
+                        this.sampleRate = e.data.sampleRate;
+                    }
                 };
 
                 // 產生 63-tap FIR 希爾伯特濾波器係數
@@ -594,9 +1050,12 @@
                 this.delayLine = new Float32Array(this.numTaps);
                 this.delayIdx = 0;
                 const half = Math.floor(this.numTaps / 2);
-                for(let i = 0; i < this.numTaps; i++){
+                
+                for (let i = 0; i < this.numTaps; i++) {
                     let n = i - half;
-                    if(n % 2 !== 0) this.h[i] = 2.0 / (Math.PI * n);
+                    if (n % 2 !== 0) {
+                        this.h[i] = 2.0 / (Math.PI * n);
+                    }
                     // 加上 Hamming window 減少截斷效應
                     this.h[i] *= (0.54 - 0.46 * Math.cos(2 * Math.PI * i / (this.numTaps - 1)));
                 }
@@ -604,7 +1063,10 @@
             process(inputs, outputs) {
                 const input = inputs[0][0];
                 const output = outputs[0][0];
-                if (!input || !output) return true;
+                
+                if (!input || !output) {
+                    return true;
+                }
                 
                 const phaseInc = this.shiftHz / this.sampleRate;
                 const half = Math.floor(this.numTaps / 2);
@@ -614,21 +1076,29 @@
 
                     // FIR 捲積計算虛部 (Imaginary)
                     let imag = 0;
-                    for(let j = 0; j < this.numTaps; j++) {
+                    for (let j = 0; j < this.numTaps; j++) {
                         let idx = this.delayIdx - j;
-                        if(idx < 0) idx += this.numTaps;
+                        if (idx < 0) {
+                            idx += this.numTaps;
+                        }
                         imag += this.delayLine[idx] * this.h[j];
                     }
 
                     // 取延遲的原始訊號作為實部 (Real)
                     let realIdx = this.delayIdx - half;
-                    if(realIdx < 0) realIdx += this.numTaps;
+                    if (realIdx < 0) {
+                        realIdx += this.numTaps;
+                    }
                     let real = this.delayLine[realIdx];
 
                     // 震盪器與單邊帶調變 (SSB = Real * cos - Imag * sin)
                     this.phase += phaseInc;
-                    if (this.phase >= 1.0) this.phase -= 1.0;
-                    if (this.phase <= -1.0) this.phase += 1.0;
+                    if (this.phase >= 1.0) {
+                        this.phase -= 1.0;
+                    }
+                    if (this.phase <= -1.0) {
+                        this.phase += 1.0;
+                    }
                     
                     let cos = Math.cos(2 * Math.PI * this.phase);
                     let sin = Math.sin(2 * Math.PI * this.phase);
@@ -642,7 +1112,7 @@
         }
         registerProcessor('fs-ht-processor', FsHtProcessor);
 
-        // --- 3. PS-FFT 引擎 (Phase Vocoder 輕量版) ---
+        // 3. PS-FFT 引擎 (Phase Vocoder 輕量版) - 等比例縮放
         class PsFftProcessor extends AudioWorkletProcessor {
             constructor() {
                 super();
@@ -654,7 +1124,9 @@
                     }
                 };
                 
-                this.bufferSize = 4096; 
+                // 為了不讓程式碼過度膨脹，這裡使用 Overlap-Add Time-Stretching 近似 Phase Vocoder 行為
+                // (因為完整的 FFT PV 需要處理 Phase Unwrapping，在 JS 內過於耗能)
+                this.bufferSize = 4096;
                 this.buffer = new Float32Array(this.bufferSize);
                 this.writePos = 0;
                 this.phase = 0;
@@ -662,24 +1134,33 @@
             process(inputs, outputs) {
                 const input = inputs[0][0];
                 const output = outputs[0][0];
-                if (!input || !output) return true;
                 
-                const grainSize = 2048; 
+                if (!input || !output) {
+                    return true;
+                }
+                
+                const grainSize = 2048;
                 const rate = (1.0 - this.pitchRatio) / grainSize;
 
                 for (let i = 0; i < input.length; i++) {
                     this.buffer[this.writePos] = input[i];
                     
                     this.phase += rate;
-                    if (this.phase >= 1.0) this.phase -= 1.0;
-                    if (this.phase < 0.0) this.phase += 1.0;
+                    if (this.phase >= 1.0) {
+                        this.phase -= 1.0;
+                    }
+                    if (this.phase < 0.0) {
+                        this.phase += 1.0;
+                    }
                     
                     let outSample = 0;
                     for (let o = 0; o < 2; o++) {
                         let p = (this.phase + o / 2) % 1.0;
                         let delay = p * grainSize;
                         let readPos = this.writePos - delay;
-                        if (readPos < 0) readPos += this.bufferSize;
+                        if (readPos < 0) {
+                            readPos += this.bufferSize;
+                        }
                         
                         let win = 0.5 - 0.5 * Math.cos(2 * Math.PI * p);
                         outSample += this.buffer[Math.floor(readPos)] * win;
@@ -700,50 +1181,67 @@
                 this.pitchRatio = 1.0;
                 this.isWasmReady = false;
                 
+                // WASM 架構通訊介面
                 this.port.onmessage = (e) => {
                     if (e.data.pitchRatio !== undefined) {
                         this.pitchRatio = Math.max(0.1, Math.min(e.data.pitchRatio, 4.0));
                     }
                     if (e.data.wasmModule) {
+                        // 範例：若真實傳入 compiled wasm module，在此初始化
                         this.isWasmReady = true;
                     }
                 };
                 
-                this.grainSize = 8192; 
+                // 高品質 4x Overlap-Add Granular Fallback (用以模擬 Phase Vocoder 平滑度)
+                this.grainSize = 8192;
                 this.overlap = 4;
-                this.bufferSize = this.grainSize * 4; 
+                this.bufferSize = this.grainSize * 4;
                 this.buffer = new Float32Array(this.bufferSize);
                 this.writePos = 0;
-                this.phase = 0; 
+                this.phase = 0;
             }
             process(inputs, outputs) {
                 const input = inputs[0][0];
                 const output = outputs[0][0];
-                if (!input || !output) return true;
                 
-                if (this.isWasmReady) { }
+                if (!input || !output) {
+                    return true;
+                }
+                
+                if (this.isWasmReady) {
+                    // 若有真實掛載的 WASM 模組，可在此呼叫其 _process()
+                }
 
+                // 啟動高品質 Fallback 演算法
                 const rate = (1.0 - this.pitchRatio) / this.grainSize;
 
                 for (let i = 0; i < input.length; i++) {
                     this.buffer[this.writePos] = input[i];
                     
                     this.phase += rate;
-                    if (this.phase >= 1.0) this.phase -= 1.0;
-                    if (this.phase < 0.0) this.phase += 1.0;
+                    if (this.phase >= 1.0) {
+                        this.phase -= 1.0;
+                    }
+                    if (this.phase < 0.0) {
+                        this.phase += 1.0;
+                    }
                     
                     let outSample = 0;
                     for (let o = 0; o < this.overlap; o++) {
                         let p = (this.phase + o / this.overlap) % 1.0;
                         let delay = p * this.grainSize;
                         let readPos = this.writePos - delay;
-                        if (readPos < 0) readPos += this.bufferSize;
+                        if (readPos < 0) {
+                            readPos += this.bufferSize;
+                        }
                         
+                        // Hanning Window
                         let win = 0.5 - 0.5 * Math.cos(2 * Math.PI * p);
                         outSample += this.buffer[Math.floor(readPos)] * win;
                     }
                     
-                    output[i] = outSample / (this.overlap * 0.375); 
+                    output[i] = outSample / (this.overlap * 0.375);
+                    
                     this.writePos = (this.writePos + 1) % this.bufferSize;
                 }
                 return true;
@@ -762,7 +1260,8 @@
             try {
                 AppLogger.verbose("Hardware", "Fetching audio inputs via enumerateDevices()");
                 if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-                    AppLogger.error("Hardware", "enumerateDevices API not supported"); return;
+                    AppLogger.error("Hardware", "enumerateDevices API not supported");
+                    return;
                 }
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 audioInputDevices = devices.filter(d => d.kind === 'audioinput');
@@ -774,42 +1273,67 @@
         }
 
         function renderInputSelects() {
-            const selects = [ { el: document.getElementById('selInputMode'), type: 'home' }, { el: document.getElementById('selAnaInputMode'), type: 'ana' } ];
+            const selects = [
+                {
+                    el: document.getElementById('selInputMode'),
+                    type: 'home'
+                },
+                {
+                    el: document.getElementById('selAnaInputMode'),
+                    type: 'ana'
+                }
+            ];
+
             selects.forEach(({el, type}) => {
-                if (!el) return;
-                el.innerHTML = '<option value="default">�輸入：系統預設</option>';
+                if (!el) {
+                    return;
+                }
+                el.innerHTML = '<option value="default">🎤輸入：系統預設</option>';
+
                 audioInputDevices.forEach((device, index) => {
                     const label = device.label || `外接裝置/麥克風 ${index + 1}`;
                     if (device.deviceId && device.deviceId !== 'default' && device.deviceId !== 'communications') {
                         const opt = document.createElement('option');
-                        opt.value = device.deviceId; opt.textContent = `�輸入：${label}`; el.appendChild(opt);
+                        opt.value = device.deviceId;
+                        opt.textContent = `🎤輸入：${label}`;
+                        el.appendChild(opt);
                     }
                 });
                 
-                if (Array.from(el.options).some(o => o.value === selectedInputId)) el.value = selectedInputId;
-                else el.value = 'default';
+                el.value = Array.from(el.options).some(o => o.value === selectedInputId) ? selectedInputId : 'default';
                 
-                if (type === 'home') el.className = el.value === 'default' ? 'btn btn-sm btn-secondary' : 'btn btn-sm btn-info';
-                else el.className = el.value === 'default' ? 'btn btn-secondary' : 'btn btn-info';
+                if (type === 'home') {
+                    el.className = el.value === 'default' ? 'btn btn-sm btn-secondary' : 'btn btn-sm btn-info';
+                } else {
+                    el.className = el.value === 'default' ? 'btn btn-secondary' : 'btn btn-info';
+                }
             });
         }
 
         function handleInputDeviceChange(e) {
             selectedInputId = e.target.value;
             AppLogger.info("Hardware", "User changed input device", selectedInputId);
-            renderInputSelects(); 
+            renderInputSelects();
             
             if (isRecording) {
                 AppLogger.verbose("Hardware", "Restarting home recording stream to apply new input...");
-                document.getElementById('btnToggleRecord').click(); setTimeout(() => document.getElementById('btnToggleRecord').click(), 300); 
+                document.getElementById('btnToggleRecord').click();
+                setTimeout(() => {
+                    document.getElementById('btnToggleRecord').click();
+                }, 300);
             }
-            if (ana_isPlaying && ana_mediaStream) { 
+            if (ana_isPlaying && ana_mediaStream) {
                 AppLogger.verbose("Hardware", "Restarting analysis recording stream to apply new input...");
-                document.getElementById('btnAnaToggleRecord').click(); setTimeout(() => document.getElementById('btnAnaToggleRecord').click(), 300);
+                document.getElementById('btnAnaToggleRecord').click();
+                setTimeout(() => {
+                    document.getElementById('btnAnaToggleRecord').click();
+                }, 300);
             }
             
             markConfigChanged();
-            if (typeof ana_markConfigChanged === 'function') ana_markConfigChanged();
+            if (typeof ana_markConfigChanged === 'function') {
+                ana_markConfigChanged();
+            }
         }
 
         if (navigator.mediaDevices && navigator.mediaDevices.ondevicechange !== undefined) {
@@ -818,6 +1342,7 @@
                 fetchAudioInputs();
             });
         }
+
         window.addEventListener('DOMContentLoaded', () => {
             fetchAudioInputs();
             document.getElementById('selInputMode').addEventListener('change', handleInputDeviceChange);
@@ -828,44 +1353,71 @@
         /* --- Utils: Toast & Dialog ---              */
         /* ========================================== */
         function showToast(msg) {
-            const toast = document.getElementById('toastMsg'); toast.textContent = msg; toast.style.display = 'block'; setTimeout(() => { toast.style.display = 'none'; }, 2000);
+            const toast = document.getElementById('toastMsg');
+            toast.textContent = msg;
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 2000);
         }
 
         let dialogCallback = null;
+
         function showConfirmDialog(msg, callback) {
             const overlay = document.getElementById('customDialogOverlay');
             document.getElementById('customDialogMsg').textContent = msg;
-            const input = document.getElementById('customDialogInput'); input.value = ''; overlay.style.display = 'flex'; dialogCallback = callback; input.focus();
+            const input = document.getElementById('customDialogInput');
+            input.value = '';
+            overlay.style.display = 'flex';
+            dialogCallback = callback;
+            input.focus();
         }
 
         document.getElementById('customDialogBtn').addEventListener('click', () => {
-            const inputVal = document.getElementById('customDialogInput').value; document.getElementById('customDialogOverlay').style.display = 'none';
-            if (dialogCallback) { dialogCallback(inputVal === 'Yes'); dialogCallback = null; }
+            const inputVal = document.getElementById('customDialogInput').value;
+            document.getElementById('customDialogOverlay').style.display = 'none';
+            if (dialogCallback) {
+                dialogCallback(inputVal === 'Yes');
+                dialogCallback = null;
+            }
         });
 
         /* ========================================== */
         /* --- Utils: Tab Switching ---               */
         /* ========================================== */
-        let isTestKeepPlaying = false; 
+        let isTestKeepPlaying = false;
 
-        function triggerCanvasResize() { setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 50); }
+        function triggerCanvasResize() {
+            setTimeout(() => {
+                window.dispatchEvent(new Event('resize'));
+            }, 50);
+        }
 
         function switchTab(tabId) {
             AppLogger.verbose("UI", "Switching tab to", tabId);
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
             document.getElementById(tabId).classList.add('active');
             const eventTarget = event.currentTarget;
-            if(eventTarget) eventTarget.classList.add('active');
+            if (eventTarget) {
+                eventTarget.classList.add('active');
+            }
 
-            if (tabId === 'audio-analysis') document.body.classList.add('analysis-mode');
-            else document.body.classList.remove('analysis-mode');
+            if (tabId === 'audio-analysis') {
+                document.body.classList.add('analysis-mode');
+            } else {
+                document.body.classList.remove('analysis-mode');
+            }
 
             triggerCanvasResize();
 
             if (tabId !== 'audio-test' && typeof isTestPlaying !== 'undefined' && isTestPlaying) {
                 if (!isTestKeepPlaying) {
-                    AppLogger.verbose("UI", "Stopping audio test due to tab switch"); 
+                    AppLogger.verbose("UI", "Stopping audio test due to tab switch");
                     stopTestAudio();
                 } else {
                     AppLogger.info("UI", "Keeping audio test playing in background for cross-tab testing");
@@ -873,10 +1425,14 @@
             }
         }
 
-        window.addEventListener('resize', () => { triggerCanvasResize(); });
+        window.addEventListener('resize', () => {
+            triggerCanvasResize();
+        });
+
         window.addEventListener('orientationchange', () => {
             AppLogger.info("UI", "Orientation changed");
-            setTimeout(triggerCanvasResize, 100); setTimeout(triggerCanvasResize, 300);
+            setTimeout(triggerCanvasResize, 100);
+            setTimeout(triggerCanvasResize, 300);
         });
 
         /* ========================================== */
@@ -884,114 +1440,213 @@
         /* ========================================== */
         function getCurveY(x, type) {
             switch(type) {
-                case 'constant': return 0;
-                case 'linear': return x;
-                case 'curveUp': return 1 - Math.sqrt(1 - x * x); 
-                case 'curveDown': return Math.sqrt(1 - (x - 1) * (x - 1));
-                default: return x;
+                case 'constant':
+                    return 0;
+                case 'linear':
+                    return x;
+                case 'curveUp':
+                    return 1 - Math.sqrt(1 - x * x);
+                case 'curveDown':
+                    return Math.sqrt(1 - (x - 1) * (x - 1));
+                default:
+                    return x;
             }
         }
 
         function calculateGainMultiplier(x, gStart, gEnd, type) {
             if (type === 'geometric') {
-                const s = Math.max(gStart, 0.001); const e = Math.max(gEnd, 0.001);
+                const s = Math.max(gStart, 0.001);
+                const e = Math.max(gEnd, 0.001);
                 return s * Math.pow(e / s, x);
             }
-            return gStart + (gEnd - gStart) * getCurveY(x, type); 
+            return gStart + (gEnd - gStart) * getCurveY(x, type);
         }
 
         /* ========================================== */
         /* --- Audio Pipeline Core Setup ---          */
         /* ========================================== */
         function setupAudioPipeline(context, source, gainVal, rowsSelector, isSoftwareNoise, isOutputMuted = false, isWasmEngine = false) {
-            AppLogger.verbose("Pipeline", "Setting up Audio Pipeline", { gainVal, isSoftwareNoise, isWasmEngine, isOutputMuted });
-            let eqNodes = []; let pitchNodes = [];
-            let inAnalyser = context.createAnalyser(); inAnalyser.fftSize = 2048; inAnalyser.minDecibels = -100; inAnalyser.maxDecibels = 0;
-            let outAnalyser = context.createAnalyser(); outAnalyser.fftSize = 2048; outAnalyser.minDecibels = -100; outAnalyser.maxDecibels = 0;
+            AppLogger.verbose("Pipeline", "Setting up Audio Pipeline", {
+                gainVal: gainVal,
+                isSoftwareNoise: isSoftwareNoise,
+                isWasmEngine: isWasmEngine,
+                isOutputMuted: isOutputMuted
+            });
+            let eqNodes = [];
+            let pitchNodes = [];
+            let inAnalyser = context.createAnalyser();
+            inAnalyser.fftSize = 2048;
+            inAnalyser.minDecibels = -100;
+            inAnalyser.maxDecibels = 0;
+            let outAnalyser = context.createAnalyser();
+            outAnalyser.fftSize = 2048;
+            outAnalyser.minDecibels = -100;
+            outAnalyser.maxDecibels = 0;
 
-            source.connect(inAnalyser); let currentNode = source;
+            source.connect(inAnalyser);
+            let currentNode = source;
 
             if (isSoftwareNoise) {
-                const hp = context.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 300; 
-                const lp = context.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3400; 
-                currentNode.connect(hp); hp.connect(lp); currentNode = lp; eqNodes.push(hp, lp);
+                const hp = context.createBiquadFilter();
+                hp.type = 'highpass';
+                hp.frequency.value = 300;
+                const lp = context.createBiquadFilter();
+                lp.type = 'lowpass';
+                lp.frequency.value = 3400;
+                currentNode.connect(hp);
+                hp.connect(lp);
+                currentNode = lp;
+                eqNodes.push(hp, lp);
             }
 
-            const mGain = context.createGain(); mGain.gain.value = gainVal;
-            currentNode.connect(mGain); currentNode = mGain; eqNodes.push(mGain);
+            const mGain = context.createGain();
+            mGain.gain.value = gainVal;
+            currentNode.connect(mGain);
+            currentNode = mGain;
+            eqNodes.push(mGain);
 
             const rows = document.querySelectorAll(rowsSelector);
             rows.forEach(row => {
-                if (row.getAttribute('data-enabled') === 'false') return;
+                if (row.getAttribute('data-enabled') === 'false') {
+                    return;
+                }
 
-                const fStart = parseFloat(row.querySelector('.f-start').value); const fEnd = parseFloat(row.querySelector('.f-end').value);
-                const volType = row.querySelector('.vol-type').value; const freqType = row.querySelector('.freq-type').value;
+                const fStart = parseFloat(row.querySelector('.f-start').value);
+                const fEnd = parseFloat(row.querySelector('.f-end').value);
+                const volType = row.querySelector('.vol-type').value;
+                const freqType = row.querySelector('.freq-type').value;
 
-                if (fStart >= fEnd) return; 
+                if (fStart >= fEnd) {
+                    return;
+                }
 
                 if (volType !== 'none') {
-                    const gStart = parseFloat(row.querySelector('.g-start').value); const gEnd = parseFloat(row.querySelector('.g-end').value); const N = 10; 
-                    for(let i = 0; i < N; i++) {
-                        const x = (N === 1) ? 0 : (i / (N - 1)); const freq = fStart * Math.pow(fEnd / fStart, x);
-                        const gainMult = calculateGainMultiplier(x, gStart, gEnd, volType); const gainDb = 20 * Math.log10(Math.max(gainMult, 0.0001));
+                    const gStart = parseFloat(row.querySelector('.g-start').value);
+                    const gEnd = parseFloat(row.querySelector('.g-end').value);
+                    const N = 10;
+                    for (let i = 0; i < N; i++) {
+                        const x = (N === 1) ? 0 : (i / (N - 1));
+                        const freq = fStart * Math.pow(fEnd / fStart, x);
+                        const gainMult = calculateGainMultiplier(x, gStart, gEnd, volType);
+                        const gainDb = 20 * Math.log10(Math.max(gainMult, 0.0001));
 
-                        const filter = context.createBiquadFilter(); filter.type = 'peaking'; filter.frequency.value = freq;
-                        const octaves = Math.log2(fEnd / fStart); const bandwidthOctaves = octaves / N;
+                        const filter = context.createBiquadFilter();
+                        filter.type = 'peaking';
+                        filter.frequency.value = freq;
+                        const octaves = Math.log2(fEnd / fStart);
+                        const bandwidthOctaves = octaves / N;
                         filter.Q.value = Math.max(0.1, Math.sqrt(Math.pow(2, bandwidthOctaves)) / (Math.pow(2, bandwidthOctaves) - 1));
-                        filter.gain.value = gainDb; currentNode.connect(filter); currentNode = filter; eqNodes.push(filter);
+                        filter.gain.value = gainDb;
+                        
+                        currentNode.connect(filter);
+                        currentNode = filter;
+                        eqNodes.push(filter);
                     }
                 }
 
                 if (freqType !== 'none' && context.audioWorkletModuleLoaded) {
-                    let targetRatio = 1.0; let tStart = fStart; let tEnd = fEnd;
+                    let targetRatio = 1.0;
+                    let tStart = fStart;
+                    let tEnd = fEnd;
                     let processorName = isWasmEngine ? 'wasm-phase-vocoder-processor' : 'pitch-shift-processor';
                     let shiftVal = 0;
 
                     if (freqType.startsWith('shift')) {
-                        shiftVal = parseFloat(row.querySelector('.freq-shift-val').value); 
+                        shiftVal = parseFloat(row.querySelector('.freq-shift-val').value);
                         const centerFreq = Math.max(100, (fStart + fEnd) / 2);
-                        targetRatio = 1.0 + (shiftVal / centerFreq); 
-                        tStart = Math.max(20, fStart + shiftVal); 
+                        targetRatio = 1.0 + (shiftVal / centerFreq);
+                        tStart = Math.max(20, fStart + shiftVal);
                         tEnd = Math.max(20, fEnd + shiftVal);
                         
-                        // 依照下拉選單選擇精確引擎 (WASM 開關在此處作為 GS 模式的覆寫)
-                        if (freqType === 'shift_gs') processorName = isWasmEngine ? 'wasm-phase-vocoder-processor' : 'pitch-shift-processor';
-                        if (freqType === 'shift_ht') processorName = 'fs-ht-processor';
-                        if (freqType === 'shift_fft') processorName = 'ps-fft-processor';
+                        if (freqType === 'shift_gs') {
+                            processorName = isWasmEngine ? 'wasm-phase-vocoder-processor' : 'pitch-shift-processor';
+                        }
+                        if (freqType === 'shift_ht') {
+                            processorName = 'fs-ht-processor';
+                        }
+                        if (freqType === 'shift_fft') {
+                            processorName = 'ps-fft-processor';
+                        }
                     } else {
-                        tStart = parseFloat(row.querySelector('.freq-target-start').value);  tEnd = parseFloat(row.querySelector('.freq-target-end').value);
+                        tStart = parseFloat(row.querySelector('.freq-target-start').value);
+                        tEnd = parseFloat(row.querySelector('.freq-target-end').value);
                         targetRatio = Math.max(0.1, (tEnd - tStart) / (fEnd - fStart));
-                        if (freqType === 'scale_curve') targetRatio *= 1.15; if (freqType === 'scale_inv_curve') targetRatio *= 0.85;
+                        if (freqType === 'scale_curve') {
+                            targetRatio *= 1.15;
+                        }
+                        if (freqType === 'scale_inv_curve') {
+                            targetRatio *= 0.85;
+                        }
                         
-                        // Scale 模式共用 GS 引擎或 WASM 引擎
                         processorName = isWasmEngine ? 'wasm-phase-vocoder-processor' : 'pitch-shift-processor';
                     }
                     
-                    const lpOriginal1 = context.createBiquadFilter(); lpOriginal1.type = 'lowpass'; lpOriginal1.frequency.value = fStart;
-                    const lpOriginal2 = context.createBiquadFilter(); lpOriginal2.type = 'lowpass'; lpOriginal2.frequency.value = fStart;
-                    const hpOriginal1 = context.createBiquadFilter(); hpOriginal1.type = 'highpass'; hpOriginal1.frequency.value = fEnd;
-                    const hpOriginal2 = context.createBiquadFilter(); hpOriginal2.type = 'highpass'; hpOriginal2.frequency.value = fEnd;
-                    const hpBand = context.createBiquadFilter(); hpBand.type = 'highpass'; hpBand.frequency.value = fStart;
-                    const lpBand = context.createBiquadFilter(); lpBand.type = 'lowpass'; lpBand.frequency.value = fEnd;
+                    AppLogger.verbose("DSP", "Applying Frequency Processor", {
+                        type: processorName,
+                        ratio: targetRatio,
+                        shift: shiftVal
+                    });
 
-                    const pitchShifter = new AudioWorkletNode(context, processorName); 
+                    const lpOriginal1 = context.createBiquadFilter();
+                    lpOriginal1.type = 'lowpass';
+                    lpOriginal1.frequency.value = fStart;
+                    const lpOriginal2 = context.createBiquadFilter();
+                    lpOriginal2.type = 'lowpass';
+                    lpOriginal2.frequency.value = fStart;
+                    const hpOriginal1 = context.createBiquadFilter();
+                    hpOriginal1.type = 'highpass';
+                    hpOriginal1.frequency.value = fEnd;
+                    const hpOriginal2 = context.createBiquadFilter();
+                    hpOriginal2.type = 'highpass';
+                    hpOriginal2.frequency.value = fEnd;
+                    const hpBand = context.createBiquadFilter();
+                    hpBand.type = 'highpass';
+                    hpBand.frequency.value = fStart;
+                    const lpBand = context.createBiquadFilter();
+                    lpBand.type = 'lowpass';
+                    lpBand.frequency.value = fEnd;
+
+                    const pitchShifter = new AudioWorkletNode(context, processorName);
                     
                     if (processorName === 'fs-ht-processor') {
-                        pitchShifter.port.postMessage({ shiftHz: shiftVal, sampleRate: context.sampleRate });
+                        pitchShifter.port.postMessage({
+                            shiftHz: shiftVal,
+                            sampleRate: context.sampleRate
+                        });
                     } else {
-                        pitchShifter.port.postMessage({ pitchRatio: targetRatio });
+                        pitchShifter.port.postMessage({
+                            pitchRatio: targetRatio
+                        });
                     }
                     
-                    const hpTarget = context.createBiquadFilter(); hpTarget.type = 'highpass'; hpTarget.frequency.value = tStart;
-                    const lpTarget = context.createBiquadFilter(); lpTarget.type = 'lowpass'; lpTarget.frequency.value = tEnd;
+                    const hpTarget = context.createBiquadFilter();
+                    hpTarget.type = 'highpass';
+                    hpTarget.frequency.value = tStart;
+                    const lpTarget = context.createBiquadFilter();
+                    lpTarget.type = 'lowpass';
+                    lpTarget.frequency.value = tEnd;
+
                     const mixer = context.createGain();
 
-                    currentNode.connect(lpOriginal1); lpOriginal1.connect(lpOriginal2); lpOriginal2.connect(mixer);
-                    currentNode.connect(hpOriginal1); hpOriginal1.connect(hpOriginal2); hpOriginal2.connect(mixer);
-                    currentNode.connect(hpBand); hpBand.connect(lpBand); lpBand.connect(pitchShifter); 
-                    pitchShifter.connect(hpTarget); hpTarget.connect(lpTarget); lpTarget.connect(mixer);
+                    const bypassHp = context.createBiquadFilter();
+                    bypassHp.type = 'highpass';
+                    bypassHp.frequency.value = fEnd;
+                    const bypassLp = context.createBiquadFilter();
+                    bypassLp.type = 'lowpass';
+                    bypassLp.frequency.value = fStart;
 
-                    currentNode = mixer; pitchNodes.push(lpOriginal1, lpOriginal2, hpOriginal1, hpOriginal2, hpBand, lpBand, pitchShifter, hpTarget, lpTarget, mixer);
+                    currentNode.connect(bypassHp);
+                    bypassHp.connect(mixer);
+                    currentNode.connect(bypassLp);
+                    bypassLp.connect(mixer);
+                    
+                    currentNode.connect(hpBand);
+                    hpBand.connect(lpBand);
+                    lpBand.connect(pitchShifter);
+                    pitchShifter.connect(mixer);
+
+                    currentNode = mixer;
+                    pitchNodes.push(bypassHp, bypassLp, hpBand, lpBand, pitchShifter, mixer);
                 }
             });
 
@@ -999,7 +1654,6 @@
             
             let muteNode = null;
             if (isOutputMuted !== null) {
-                // � 修正點 1：正確處理 Boolean 變數
                 muteNode = context.createGain();
                 muteNode.gain.value = isOutputMuted ? 0 : 1;
                 currentNode.connect(muteNode);
@@ -1008,83 +1662,184 @@
                 currentNode.connect(context.destination);
             }
 
-            return { inAnalyser, outAnalyser, eqNodes, pitchNodes, muteNode };
+            return {
+                inAnalyser: inAnalyser,
+                outAnalyser: outAnalyser,
+                eqNodes: eqNodes,
+                pitchNodes: pitchNodes,
+                muteNode: muteNode
+            };
         }
 
         /* ========================================== */
         /* --- Spectrum Rendering Core (Zoom/Pan) --- */
         /* ========================================== */
         function drawSpectrumGrid(ctx, canvasWidth, canvasHeight, viewStart, viewEnd) {
-            const pad = { t: 25, r: 25, b: 25, l: 40 }; 
-            const gW = canvasWidth - pad.l - pad.r; const gH = canvasHeight - pad.t - pad.b; const span = viewEnd - viewStart;
+            const pad = {
+                t: 25,
+                r: 25,
+                b: 25,
+                l: 40
+            };
+            const gW = canvasWidth - pad.l - pad.r;
+            const gH = canvasHeight - pad.t - pad.b;
+            const span = viewEnd - viewStart;
 
-            ctx.fillStyle = '#111'; ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-            ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.fillStyle = '#aaa'; ctx.font = '11px sans-serif';
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-            ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.fillStyle = '#aaa';
+            ctx.font = '11px sans-serif';
+
+            // Y Axis
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
             const yTicks = [0, -20, -40, -60, -80, -100];
+            
             yTicks.forEach(db => {
-                const percent = (db - (-100)) / 100; const y = pad.t + gH * (1 - percent);
-                ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + gW, y); ctx.stroke();
+                const percent = (db - (-100)) / 100;
+                const y = pad.t + gH * (1 - percent);
+                ctx.beginPath();
+                ctx.moveTo(pad.l, y);
+                ctx.lineTo(pad.l + gW, y);
+                ctx.stroke();
                 ctx.fillText(db === 0 ? '0 dB' : db.toString(), pad.l - 5, y);
             });
 
-            ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+            // X Axis
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            
             let step;
-            if (span <= 500) step = 50; else if (span <= 1000) step = 100; else if (span <= 2500) step = 250; else if (span <= 5000) step = 500; else if (span <= 10000) step = 1000; else if (span <= 20000) step = 2000; else step = 4000;
-
-            let startTick = Math.ceil(viewStart / step) * step;
-            for (let freq = startTick; freq <= viewEnd; freq += step) {
-                const x = pad.l + gW * ((freq - viewStart) / span);
-                ctx.beginPath(); ctx.moveTo(x, pad.t + gH); ctx.lineTo(x, pad.t + gH + 5); ctx.stroke();
-                let label = freq >= 1000 ? (freq / 1000) + 'k' : freq.toString(); ctx.fillText(label, x, pad.t + gH + 8);
+            if (span <= 500) {
+                step = 50;
+            } else if (span <= 1000) {
+                step = 100;
+            } else if (span <= 2500) {
+                step = 250;
+            } else if (span <= 5000) {
+                step = 500;
+            } else if (span <= 10000) {
+                step = 1000;
+            } else if (span <= 20000) {
+                step = 2000;
+            } else {
+                step = 4000;
             }
 
-            const safeDb = -12; const safePercent = (safeDb - (-100)) / 100; const safeY = pad.t + gH * (1 - safePercent);
-            ctx.strokeStyle = 'rgba(255, 165, 0, 0.8)'; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5;
-            ctx.beginPath(); ctx.moveTo(pad.l, safeY); ctx.lineTo(pad.l + gW, safeY); ctx.stroke(); ctx.setLineDash([]); 
+            let startTick = Math.ceil(viewStart / step) * step;
             
-            ctx.fillStyle = 'orange'; ctx.textAlign = 'right'; ctx.fillText('-12 dB', pad.l + gW, safeY - 8);
+            for (let freq = startTick; freq <= viewEnd; freq += step) {
+                const x = pad.l + gW * ((freq - viewStart) / span);
+                ctx.beginPath();
+                ctx.moveTo(x, pad.t + gH);
+                ctx.lineTo(x, pad.t + gH + 5);
+                ctx.stroke();
+                let label = freq >= 1000 ? (freq / 1000) + 'k' : freq.toString();
+                ctx.fillText(label, x, pad.t + gH + 8);
+            }
 
-            return { pad, gW, gH };
+            // 安全線 (-12dB)
+            const safeDb = -12;
+            const safePercent = (safeDb - (-100)) / 100;
+            const safeY = pad.t + gH * (1 - safePercent);
+            ctx.strokeStyle = 'rgba(255, 165, 0, 0.8)';
+            ctx.setLineDash([5, 5]);
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(pad.l, safeY);
+            ctx.lineTo(pad.l + gW, safeY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.fillStyle = 'orange';
+            ctx.textAlign = 'right';
+            ctx.fillText('-12 dB', pad.l + gW, safeY - 8);
+
+            return {
+                pad: pad,
+                gW: gW,
+                gH: gH
+            };
         }
 
         function runSpectrumAnimation(ctx, canvas, inAnalyser, outAnalyser, inData, outData, maxFreq, viewRef) {
-            inAnalyser.getFloatFrequencyData(inData); outAnalyser.getFloatFrequencyData(outData);
-            const viewStart = viewRef.startFreq; const viewEnd = viewRef.endFreq; const span = viewEnd - viewStart;
+            inAnalyser.getFloatFrequencyData(inData);
+            outAnalyser.getFloatFrequencyData(outData);
+
+            const viewStart = viewRef.startFreq;
+            const viewEnd = viewRef.endFreq;
+            const span = viewEnd - viewStart;
+
             const { pad, gW, gH } = drawSpectrumGrid(ctx, canvas.width, canvas.height, viewStart, viewEnd);
             
-            const bufferLength = inAnalyser.frequencyBinCount; const binHz = maxFreq / bufferLength; const barWidth = gW * (binHz / span);
+            const bufferLength = inAnalyser.frequencyBinCount;
+            const binHz = maxFreq / bufferLength;
+            const barWidth = gW * (binHz / span);
 
             for (let i = 0; i < bufferLength; i++) {
                 const binFreq = i * binHz;
-                if (binFreq + binHz < viewStart || binFreq > viewEnd) continue;
+                if (binFreq + binHz < viewStart || binFreq > viewEnd) {
+                    continue;
+                }
 
-                let x = pad.l + gW * ((binFreq - viewStart) / span); let drawX = Math.max(pad.l, x); let drawW = barWidth;
-                if (x < pad.l) drawW -= (pad.l - x);
-                if (drawX + drawW > pad.l + gW) drawW = (pad.l + gW) - drawX;
-                if (drawW <= 0) continue;
+                let x = pad.l + gW * ((binFreq - viewStart) / span);
+                let drawX = Math.max(pad.l, x);
+                let drawW = barWidth;
+                
+                if (x < pad.l) {
+                    drawW -= (pad.l - x);
+                }
+                if (drawX + drawW > pad.l + gW) {
+                    drawW = (pad.l + gW) - drawX;
+                }
+                if (drawW <= 0) {
+                    continue;
+                }
 
-                let inPercent = (inData[i] - (-100)) / 100; if(inPercent < 0) inPercent = 0; if(inPercent > 1) inPercent = 1;
-                let outPercent = (outData[i] - (-100)) / 100; if(outPercent < 0) outPercent = 0; if(outPercent > 1) outPercent = 1;
+                let inPercent = (inData[i] - (-100)) / 100;
+                if (inPercent < 0) {
+                    inPercent = 0;
+                }
+                if (inPercent > 1) {
+                    inPercent = 1;
+                }
+                let outPercent = (outData[i] - (-100)) / 100;
+                if (outPercent < 0) {
+                    outPercent = 0;
+                }
+                if (outPercent > 1) {
+                    outPercent = 1;
+                }
 
-                const inputHeight = inPercent * gH; const outputHeight = outPercent * gH;
+                const inputHeight = inPercent * gH;
+                const outputHeight = outPercent * gH;
 
                 ctx.fillStyle = 'rgba(150, 150, 150, 0.6)';
                 ctx.fillRect(drawX, pad.t + gH - inputHeight, drawW > 1 ? drawW - 1 : drawW, inputHeight);
 
-                ctx.fillStyle = 'rgba(0, 123, 255, 0.9)'; const outWidth = Math.max(1, (drawW - 1) * 0.5); const outX = drawX + ((drawW - 1) - outWidth) / 2;
+                ctx.fillStyle = 'rgba(0, 123, 255, 0.9)';
+                const outWidth = Math.max(1, (drawW - 1) * 0.5);
+                const outX = drawX + ((drawW - 1) - outWidth) / 2;
                 ctx.fillRect(outX, pad.t + gH - outputHeight, outWidth, outputHeight);
             }
         }
 
         function startSpectrumAnimation(canvasId, refObj) {
-            const canvas = document.getElementById(canvasId); const ctx = canvas.getContext('2d');
-            canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight;
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
 
-            const bufferLength = refObj.inAna.frequencyBinCount; 
-            refObj.inData = new Float32Array(bufferLength); refObj.outData = new Float32Array(bufferLength);
-            const sampleRate = (refObj.ctx && refObj.ctx.sampleRate) ? refObj.ctx.sampleRate : 48000; const maxFreq = sampleRate / 2;
+            const bufferLength = refObj.inAna.frequencyBinCount;
+            refObj.inData = new Float32Array(bufferLength);
+            refObj.outData = new Float32Array(bufferLength);
+            
+            const sampleRate = (refObj.ctx && refObj.ctx.sampleRate) ? refObj.ctx.sampleRate : 48000;
+            const maxFreq = sampleRate / 2;
 
             function draw() {
                 refObj.animId = requestAnimationFrame(draw);
@@ -1094,66 +1849,176 @@
         }
 
         function stopSpectrumAnimation(canvasId, refObj) {
-            if (refObj && refObj.animId) cancelAnimationFrame(refObj.animId);
+            if (refObj && refObj.animId) {
+                cancelAnimationFrame(refObj.animId);
+            }
             const canvas = document.getElementById(canvasId);
-            if(canvas) {
-                const ctx = canvas.getContext('2d'); canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight;
-                drawSpectrumGrid(ctx, canvas.width, canvas.height, refObj.view.startFreq, refObj.view.endFreq); 
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                canvas.width = canvas.clientWidth;
+                canvas.height = canvas.clientHeight;
+                drawSpectrumGrid(ctx, canvas.width, canvas.height, refObj.view.startFreq, refObj.view.endFreq);
             }
         }
 
         /* --- 觸控手勢核心解析器 --- */
         function setupSpectrumGestures(canvas, refObj) {
-            let initialPinchDist = null; let initialViewSpan = null; let initialCenterFreq = null; let lastTouch = null; 
+            let initialPinchDist = null;
+            let initialViewSpan = null;
+            let initialCenterFreq = null;
+            let lastTouch = null;
 
-            function getCanvasX(touch) { const rect = canvas.getBoundingClientRect(); return touch.clientX - rect.left; }
-            function getPanDelta(touch, lastTouchObj) { return touch.clientX - lastTouchObj.x; }
+            function getCanvasX(touch) {
+                const rect = canvas.getBoundingClientRect();
+                return touch.clientX - rect.left;
+            }
+
+            function getPanDelta(touch, lastTouchObj) {
+                return touch.clientX - lastTouchObj.x;
+            }
 
             canvas.addEventListener('touchstart', (e) => {
                 if (e.touches.length === 2) {
                     e.preventDefault();
-                    const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY;
-                    initialPinchDist = Math.sqrt(dx*dx + dy*dy); initialViewSpan = refObj.view.endFreq - refObj.view.startFreq;
-                    const cx = (getCanvasX(e.touches[0]) + getCanvasX(e.touches[1])) / 2; const padL = 40; const gW = canvas.clientWidth - padL - 25; 
-                    const percentX = Math.max(0, Math.min(1, (cx - padL) / gW)); initialCenterFreq = refObj.view.startFreq + percentX * initialViewSpan;
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    initialPinchDist = Math.sqrt(dx * dx + dy * dy);
+                    initialViewSpan = refObj.view.endFreq - refObj.view.startFreq;
+                    
+                    const cx = (getCanvasX(e.touches[0]) + getCanvasX(e.touches[1])) / 2;
+                    const padL = 40;
+                    const gW = canvas.clientWidth - padL - 25;
+                    const percentX = Math.max(0, Math.min(1, (cx - padL) / gW));
+                    
+                    initialCenterFreq = refObj.view.startFreq + percentX * initialViewSpan;
                     lastTouch = null;
-                } else if (e.touches.length === 1) { lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }
-            }, { passive: false });
+                } else if (e.touches.length === 1) {
+                    lastTouch = {
+                        x: e.touches[0].clientX,
+                        y: e.touches[0].clientY
+                    };
+                }
+            }, {
+                passive: false
+            });
 
             canvas.addEventListener('touchmove', (e) => {
                 if (e.touches.length === 2 && initialPinchDist) {
                     e.preventDefault();
-                    const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY;
-                    const currentDist = Math.sqrt(dx*dx + dy*dy); if (currentDist === 0) return; let scale = initialPinchDist / currentDist;
-                    let newSpan = initialViewSpan * scale; if (newSpan < refObj.view.minFreqSpan) newSpan = refObj.view.minFreqSpan; if (newSpan > 24000) newSpan = 24000;
-                    let percentX = (initialCenterFreq - refObj.view.startFreq) / initialViewSpan; let newStart = initialCenterFreq - percentX * newSpan; let newEnd = newStart + newSpan;
-                    if (newStart < 0) { newStart = 0; newEnd = newSpan; } if (newEnd > 24000) { newEnd = 24000; newStart = 24000 - newSpan; }
-                    refObj.view.startFreq = newStart; refObj.view.endFreq = newEnd;
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    const currentDist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (currentDist === 0) {
+                        return;
+                    }
+                    let scale = initialPinchDist / currentDist;
+                    
+                    let newSpan = initialViewSpan * scale;
+                    if (newSpan < refObj.view.minFreqSpan) {
+                        newSpan = refObj.view.minFreqSpan;
+                    }
+                    if (newSpan > 24000) {
+                        newSpan = 24000;
+                    }
+                    
+                    let percentX = (initialCenterFreq - refObj.view.startFreq) / initialViewSpan;
+                    let newStart = initialCenterFreq - percentX * newSpan;
+                    let newEnd = newStart + newSpan;
+                    
+                    if (newStart < 0) {
+                        newStart = 0;
+                        newEnd = newSpan;
+                    }
+                    if (newEnd > 24000) {
+                        newEnd = 24000;
+                        newStart = 24000 - newSpan;
+                    }
+                    
+                    refObj.view.startFreq = newStart;
+                    refObj.view.endFreq = newEnd;
                 } else if (e.touches.length === 1 && lastTouch !== null) {
                     e.preventDefault();
-                    const delta = getPanDelta(e.touches[0], lastTouch); lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-                    const gW = canvas.clientWidth - 40 - 25; const currentSpan = refObj.view.endFreq - refObj.view.startFreq; const shiftFreq = - (delta / gW) * currentSpan;
-                    let newStart = refObj.view.startFreq + shiftFreq; let newEnd = refObj.view.endFreq + shiftFreq;
-                    if (newStart < 0) { newStart = 0; newEnd = currentSpan; } if (newEnd > 24000) { newEnd = 24000; newStart = 24000 - currentSpan; }
-                    refObj.view.startFreq = newStart; refObj.view.endFreq = newEnd;
+                    const delta = getPanDelta(e.touches[0], lastTouch);
+                    lastTouch = {
+                        x: e.touches[0].clientX,
+                        y: e.touches[0].clientY
+                    };
+                    
+                    const gW = canvas.clientWidth - 40 - 25;
+                    const currentSpan = refObj.view.endFreq - refObj.view.startFreq;
+                    
+                    const shiftFreq = - (delta / gW) * currentSpan;
+                    
+                    let newStart = refObj.view.startFreq + shiftFreq;
+                    let newEnd = refObj.view.endFreq + shiftFreq;
+                    
+                    if (newStart < 0) {
+                        newStart = 0;
+                        newEnd = currentSpan;
+                    }
+                    if (newEnd > 24000) {
+                        newEnd = 24000;
+                        newStart = 24000 - currentSpan;
+                    }
+                    
+                    refObj.view.startFreq = newStart;
+                    refObj.view.endFreq = newEnd;
                 }
-            }, { passive: false });
+            }, {
+                passive: false
+            });
 
             canvas.addEventListener('touchend', (e) => {
-                if (e.touches.length < 2) initialPinchDist = null;
-                if (e.touches.length === 0) lastTouch = null; else if (e.touches.length === 1) lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                if (e.touches.length < 2) {
+                    initialPinchDist = null;
+                }
+                if (e.touches.length === 0) {
+                    lastTouch = null;
+                } else if (e.touches.length === 1) {
+                    lastTouch = {
+                        x: e.touches[0].clientX,
+                        y: e.touches[0].clientY
+                    };
+                }
             });
 
             canvas.addEventListener('wheel', (e) => {
                 e.preventDefault();
-                const cx = getCanvasX(e); const padL = 40; const gW = canvas.clientWidth - padL - 25; const percentX = Math.max(0, Math.min(1, (cx - padL) / gW));
-                const currentSpan = refObj.view.endFreq - refObj.view.startFreq; const centerFreq = refObj.view.startFreq + percentX * currentSpan;
-                let zoomFactor = e.deltaY > 0 ? 1.1 : 0.9; let newSpan = currentSpan * zoomFactor;
-                if (newSpan < refObj.view.minFreqSpan) newSpan = refObj.view.minFreqSpan; if (newSpan > 24000) newSpan = 24000;
-                let newStart = centerFreq - percentX * newSpan; let newEnd = newStart + newSpan;
-                if (newStart < 0) { newStart = 0; newEnd = newSpan; } if (newEnd > 24000) { newEnd = 24000; newStart = 24000 - newSpan; }
-                refObj.view.startFreq = newStart; refObj.view.endFreq = newEnd;
-            }, { passive: false });
+                const cx = getCanvasX(e);
+                const padL = 40;
+                const gW = canvas.clientWidth - padL - 25;
+                const percentX = Math.max(0, Math.min(1, (cx - padL) / gW));
+                
+                const currentSpan = refObj.view.endFreq - refObj.view.startFreq;
+                const centerFreq = refObj.view.startFreq + percentX * currentSpan;
+                
+                let zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+                let newSpan = currentSpan * zoomFactor;
+                if (newSpan < refObj.view.minFreqSpan) {
+                    newSpan = refObj.view.minFreqSpan;
+                }
+                if (newSpan > 24000) {
+                    newSpan = 24000;
+                }
+                
+                let newStart = centerFreq - percentX * newSpan;
+                let newEnd = newStart + newSpan;
+                
+                if (newStart < 0) {
+                    newStart = 0;
+                    newEnd = newSpan;
+                }
+                if (newEnd > 24000) {
+                    newEnd = 24000;
+                    newStart = 24000 - newSpan;
+                }
+                
+                refObj.view.startFreq = newStart;
+                refObj.view.endFreq = newEnd;
+            }, {
+                passive: false
+            });
         }
 
         /* ========================================== */
@@ -1163,15 +2028,22 @@
         let mediaStream;
         let sourceNode;
         let masterGainNode;
-        let eqFilterNodes = []; 
-        let pitchShifterNodes = []; 
+        let eqFilterNodes = [];
+        let pitchShifterNodes = [];
         let noiseFilterHighpass = null;
         let noiseFilterLowpass = null;
         let isRecording = false;
 
         let inputAnalyser = null;
         let outputAnalyser = null;
-        let mainSpecRef = { animId: null, view: { startFreq: 0, endFreq: 24000, minFreqSpan: 1000 } };
+        let mainSpecRef = {
+            animId: null,
+            view: {
+                startFreq: 0,
+                endFreq: 24000,
+                minFreqSpan: 1000
+            }
+        };
 
         let isSoftwareNoiseOn = false;
         let isHardwareNoiseOn = false;
@@ -1179,11 +2051,11 @@
         let isBackgroundKeepOn = false;
         let wakeLock = null;
         let isMaxVol10 = false;
-        let isWasmEngineOn = false; 
+        let isWasmEngineOn = false;
         
         let configDict = {};
         let configCounter = 1;
-        let isApplyingConfig = false; 
+        let isApplyingConfig = false;
         let bandIdCounter = 0;
 
         function saveConfigToStorage() {
@@ -1208,14 +2080,22 @@
                 });
             });
             return {
-                isSoftwareNoiseOn, isScreenWakeOn, isHardwareNoiseOn, isBackgroundKeepOn,
+                isSoftwareNoiseOn: isSoftwareNoiseOn,
+                isScreenWakeOn: isScreenWakeOn,
+                isHardwareNoiseOn: isHardwareNoiseOn,
+                isBackgroundKeepOn: isBackgroundKeepOn,
                 volume: document.getElementById('volumeSlider').value,
-                isMaxVol10, isWasmEngineOn, selectedInputId, bands
+                isMaxVol10: isMaxVol10,
+                isWasmEngineOn: isWasmEngineOn,
+                selectedInputId: selectedInputId,
+                bands: bands
             };
         }
 
         function markConfigChanged() {
-            if (isApplyingConfig) return; 
+            if (isApplyingConfig) {
+                return;
+            }
             const sel = document.getElementById('selConfig');
             if (sel.value !== '預存變更') {
                 sel.value = '預存變更';
@@ -1237,15 +2117,26 @@
                     sel.appendChild(opt);
                 }
             }
-            if(configDict[currentVal]) sel.value = currentVal;
-            else sel.value = '預存變更';
+            if (configDict[currentVal]) {
+                sel.value = currentVal;
+            } else {
+                sel.value = '預存變更';
+            }
         }
 
         window.addEventListener('DOMContentLoaded', () => {
             const savedConfigs = localStorage.getItem('pwa_audio_configs');
-            if (savedConfigs) { try { configDict = JSON.parse(savedConfigs); } catch (e) { configDict = {}; } }
+            if (savedConfigs) {
+                try {
+                    configDict = JSON.parse(savedConfigs);
+                } catch (e) {
+                    configDict = {};
+                }
+            }
             const savedCounter = localStorage.getItem('pwa_audio_config_counter');
-            if (savedCounter) configCounter = parseInt(savedCounter, 10);
+            if (savedCounter) {
+                configCounter = parseInt(savedCounter, 10);
+            }
 
             updateHomeSelect();
 
@@ -1269,7 +2160,7 @@
             const div = document.createElement('div');
             div.className = 'band-row';
             div.id = `band-${id}`;
-            div.setAttribute('data-enabled', b ? (b.enabled ? 'true' : 'false') : 'false'); 
+            div.setAttribute('data-enabled', b ? (b.enabled ? 'true' : 'false') : 'false');
             
             const fStart = b ? b.fStart : 500;
             const fEnd = b ? b.fEnd : 2000;
@@ -1277,7 +2168,9 @@
             const gStart = b ? (b.gStart || 1.0) : 1.0;
             const gEnd = b ? (b.gEnd || 2.0) : 2.0;
             let freqType = b ? (b.freqType || 'none') : 'none';
-            if (freqType === 'shift') freqType = 'shift_gs'; // 向下相容
+            if (freqType === 'shift') {
+                freqType = 'shift_gs';
+            }
             const freqShiftVal = b ? (b.freqShiftVal || '500') : '500';
             const freqTargetStart = b ? (b.freqTargetStart || '2000') : '2000';
             const freqTargetEnd = b ? (b.freqTargetEnd || '5000') : '5000';
@@ -1341,24 +2234,36 @@
 
         function handleVolTypeChange(selectElem, triggerRebuild = true, isAna = false) {
             const row = selectElem.closest('.band-row, .ana-band-row');
-            if(!row) return;
+            if (!row) {
+                return;
+            }
             const gStart = row.querySelector('.g-start');
             const gEnd = row.querySelector('.g-end');
             
             if (selectElem.value === 'none') {
-                gStart.disabled = true; gEnd.disabled = true;
+                gStart.disabled = true;
+                gEnd.disabled = true;
             } else {
-                gStart.disabled = false; gEnd.disabled = false;
+                gStart.disabled = false;
+                gEnd.disabled = false;
             }
-            if(triggerRebuild) {
-                if(isAna) { ana_rebuildAudioPipeline(); ana_markConfigChanged(); }
-                else { rebuildAudioPipeline(); markConfigChanged(); }
+            
+            if (triggerRebuild) {
+                if (isAna) {
+                    ana_rebuildAudioPipeline();
+                    ana_markConfigChanged();
+                } else {
+                    rebuildAudioPipeline();
+                    markConfigChanged();
+                }
             }
         }
 
         function handleFreqTypeChange(selectElem, triggerRebuild = true, isAna = false) {
             const row = selectElem.closest('.band-row, .ana-band-row');
-            if(!row) return;
+            if (!row) {
+                return;
+            }
             const freqParams = row.querySelector('.freq-params');
             const shiftUi = row.querySelector('.freq-shift-ui');
             const scaleUi = row.querySelector('.freq-scale-ui');
@@ -1376,14 +2281,20 @@
                     scaleUi.style.display = 'inline-block';
                 }
             }
-            if(triggerRebuild) {
-                if(isAna) { ana_rebuildAudioPipeline(); ana_markConfigChanged(); }
-                else { rebuildAudioPipeline(); markConfigChanged(); }
+            
+            if (triggerRebuild) {
+                if (isAna) {
+                    ana_rebuildAudioPipeline();
+                    ana_markConfigChanged();
+                } else {
+                    rebuildAudioPipeline();
+                    markConfigChanged();
+                }
             }
         }
 
         async function applySettings(config) {
-            isApplyingConfig = true; 
+            isApplyingConfig = true;
 
             isSoftwareNoiseOn = config.isSoftwareNoiseOn || false;
             document.getElementById('btnSoftwareNoise').textContent = isSoftwareNoiseOn ? '人聲降噪：開' : '人聲降噪：關';
@@ -1421,25 +2332,32 @@
             bandsContainer.innerHTML = '';
             bandIdCounter = 0;
             
-            if(config.bands) {
+            if (config.bands) {
                 config.bands.forEach(b => {
                     const id = bandIdCounter++;
-                    const div = createBandElement(id, b); 
+                    const div = createBandElement(id, b);
                     bandsContainer.appendChild(div);
                     handleVolTypeChange(div.querySelector('.vol-type'), false, false);
                     handleFreqTypeChange(div.querySelector('.freq-type'), false, false);
                 });
             }
             rebuildAudioPipeline();
-            isApplyingConfig = false; 
+            isApplyingConfig = false;
         }
 
         function safeDisconnect(node) {
-            if (node) { try { node.disconnect(); } catch(e){} }
+            if (node) {
+                try {
+                    node.disconnect();
+                } catch (e) {
+                }
+            }
         }
 
         function rebuildAudioPipeline() {
-            if (!audioContext || !sourceNode) return; 
+            if (!audioContext || !sourceNode) {
+                return;
+            }
             
             AppLogger.verbose("Home", "Rebuilding audio pipeline...");
             safeDisconnect(sourceNode);
@@ -1464,8 +2382,11 @@
         document.getElementById('selConfig').addEventListener('change', (e) => {
             const selected = e.target.value;
             document.getElementById('btnDelConfig').disabled = (selected === '預存變更');
-            if (configDict[selected]) applySettings(configDict[selected]);
+            if (configDict[selected]) {
+                applySettings(configDict[selected]);
+            }
         });
+
         document.getElementById('btnSaveConfig').addEventListener('click', () => {
             const sel = document.getElementById('selConfig');
             if (sel.value === '預存變更') {
@@ -1474,32 +2395,47 @@
                 updateHomeSelect();
                 sel.value = newName;
                 document.getElementById('btnDelConfig').disabled = false;
-                saveConfigToStorage(); showToast('成功');
+                saveConfigToStorage();
+                showToast('成功');
             } else {
                 showConfirmDialog('確定要覆寫內容請在右邊寫上 Yes', (match) => {
-                    if(match) { configDict[sel.value] = getCurrentSettings(); saveConfigToStorage(); showToast('成功'); }
-                    else showToast('失敗');
+                    if (match) {
+                        configDict[sel.value] = getCurrentSettings();
+                        saveConfigToStorage();
+                        showToast('成功');
+                    } else {
+                        showToast('失敗');
+                    }
                 });
             }
         });
+
         document.getElementById('btnDelConfig').addEventListener('click', () => {
             showConfirmDialog('確定要刪除請在右邊寫上 Yes', (match) => {
-                if(match) {
+                if (match) {
                     delete configDict[document.getElementById('selConfig').value];
                     updateHomeSelect();
                     document.getElementById('selConfig').value = '預存變更';
                     document.getElementById('btnDelConfig').disabled = true;
                     applySettings(configDict['預存變更']);
-                    saveConfigToStorage(); showToast('成功');
-                } else showToast('失敗');
+                    saveConfigToStorage();
+                    showToast('成功');
+                } else {
+                    showToast('失敗');
+                }
             });
         });
+
         document.getElementById('volumeSlider').addEventListener('input', (e) => {
             document.getElementById('volumeValue').textContent = e.target.value;
-            if (eqFilterNodes.length > 0 && eqFilterNodes[0].gain) eqFilterNodes[0].gain.value = e.target.value; 
-            else rebuildAudioPipeline();
+            if (eqFilterNodes.length > 0 && eqFilterNodes[0].gain) {
+                eqFilterNodes[0].gain.value = e.target.value;
+            } else {
+                rebuildAudioPipeline();
+            }
             markConfigChanged();
         });
+
         document.getElementById('btnToggleMaxVol').addEventListener('click', () => {
             isMaxVol10 = !isMaxVol10;
             const vs = document.getElementById('volumeSlider');
@@ -1511,72 +2447,112 @@
                 vs.max = 5;
                 document.getElementById('btnToggleMaxVol').textContent = '上限切換: 5x';
                 document.getElementById('btnToggleMaxVol').className = 'btn btn-sm btn-secondary';
-                if (parseFloat(vs.value) > 5) { vs.value = 5; document.getElementById('volumeValue').textContent = '5.0'; rebuildAudioPipeline(); }
+                if (parseFloat(vs.value) > 5) {
+                    vs.value = 5;
+                    document.getElementById('volumeValue').textContent = '5.0';
+                    rebuildAudioPipeline();
+                }
             }
             markConfigChanged();
         });
+
         document.getElementById('btnSoftwareNoise').addEventListener('click', () => {
             isSoftwareNoiseOn = !isSoftwareNoiseOn;
             document.getElementById('btnSoftwareNoise').textContent = isSoftwareNoiseOn ? '人聲降噪：開' : '人聲降噪：關';
             document.getElementById('btnSoftwareNoise').className = isSoftwareNoiseOn ? 'btn btn-sm btn-success' : 'btn btn-sm btn-secondary';
-            rebuildAudioPipeline(); markConfigChanged();
+            rebuildAudioPipeline();
+            markConfigChanged();
         });
+
         document.getElementById('btnHardwareNoise').addEventListener('click', async () => {
             isHardwareNoiseOn = !isHardwareNoiseOn;
             document.getElementById('btnHardwareNoise').textContent = isHardwareNoiseOn ? '降噪：開' : '降噪：關';
             document.getElementById('btnHardwareNoise').className = isHardwareNoiseOn ? 'btn btn-sm btn-success' : 'btn btn-sm btn-secondary';
             if (isRecording && mediaStream && mediaStream.getAudioTracks()[0]) {
-                await mediaStream.getAudioTracks()[0].applyConstraints({ noiseSuppression: isHardwareNoiseOn }).catch(e=>{});
+                await mediaStream.getAudioTracks()[0].applyConstraints({
+                    noiseSuppression: isHardwareNoiseOn
+                }).catch((e) => {});
             }
             markConfigChanged();
         });
+
         document.getElementById('btnScreenWake').addEventListener('click', async () => {
             isScreenWakeOn = !isScreenWakeOn;
             const btn = document.getElementById('btnScreenWake');
             if (isScreenWakeOn) {
-                btn.textContent = '螢幕常亮(防暫停)：開'; btn.className = 'btn btn-sm btn-warning';
-                try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
+                btn.textContent = '螢幕常亮(防暫停)：開';
+                btn.className = 'btn btn-sm btn-warning';
+                try {
+                    if ('wakeLock' in navigator) {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                    }
+                } catch (err) {
+                }
             } else {
-                btn.textContent = '螢幕常亮(防暫停)：關'; btn.className = 'btn btn-sm btn-secondary';
-                if (wakeLock !== null) { wakeLock.release().then(() => { wakeLock = null; }); }
+                btn.textContent = '螢幕常亮(防暫停)：關';
+                btn.className = 'btn btn-sm btn-secondary';
+                if (wakeLock !== null) {
+                    wakeLock.release().then(() => {
+                        wakeLock = null;
+                    });
+                }
             }
             markConfigChanged();
         });
+
         document.getElementById('btnBackgroundKeep').addEventListener('click', () => {
             isBackgroundKeepOn = !isBackgroundKeepOn;
             document.getElementById('btnBackgroundKeep').textContent = isBackgroundKeepOn ? '防休眠(背景執行)：開' : '防休眠(背景執行)：關';
             document.getElementById('btnBackgroundKeep').className = isBackgroundKeepOn ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-secondary';
             markConfigChanged();
         });
+
         document.getElementById('btnEngineMode').addEventListener('click', () => {
             isWasmEngineOn = !isWasmEngineOn;
             const btn = document.getElementById('btnEngineMode');
             btn.textContent = isWasmEngineOn ? '移頻引擎：專業 WASM' : '移頻引擎：標準 JS';
             btn.className = isWasmEngineOn ? 'btn btn-sm btn-info' : 'btn btn-sm btn-secondary';
-            rebuildAudioPipeline(); markConfigChanged();
+            rebuildAudioPipeline();
+            markConfigChanged();
         });
 
         document.getElementById('btnAddBand').addEventListener('click', () => {
             const div = createBandElement(bandIdCounter++, null);
             document.getElementById('bandsContainer').appendChild(div);
-            rebuildAudioPipeline(); markConfigChanged();
+            rebuildAudioPipeline();
+            markConfigChanged();
         });
-        document.getElementById('bandsContainer').addEventListener('change', (e) => { 
-            if(e.target.tagName !== 'SELECT') { rebuildAudioPipeline(); markConfigChanged(); }
+
+        document.getElementById('bandsContainer').addEventListener('change', (e) => {
+            if (e.target.tagName !== 'SELECT') {
+                rebuildAudioPipeline();
+                markConfigChanged();
+            }
         });
+
         function toggleBand(id) {
             const row = document.getElementById(`band-${id}`);
             const btn = document.getElementById(`btn-toggle-${id}`);
             if (row.getAttribute('data-enabled') === 'true') {
-                row.setAttribute('data-enabled', 'false'); btn.className = 'btn btn-success btn-sm'; btn.innerText = '啟用';
+                row.setAttribute('data-enabled', 'false');
+                btn.className = 'btn btn-success btn-sm';
+                btn.innerText = '啟用';
             } else {
-                row.setAttribute('data-enabled', 'true'); btn.className = 'btn btn-warning btn-sm'; btn.innerText = '停用';
+                row.setAttribute('data-enabled', 'true');
+                btn.className = 'btn btn-warning btn-sm';
+                btn.innerText = '停用';
             }
-            rebuildAudioPipeline(); markConfigChanged();
+            rebuildAudioPipeline();
+            markConfigChanged();
         }
+
         function deleteBand(id) {
             const row = document.getElementById(`band-${id}`);
-            if (row) { row.remove(); rebuildAudioPipeline(); markConfigChanged(); }
+            if (row) {
+                row.remove();
+                rebuildAudioPipeline();
+                markConfigChanged();
+            }
         }
         
         document.getElementById('btnToggleRecord').addEventListener('click', async () => {
@@ -1584,45 +2560,63 @@
                 try {
                     AppLogger.info("HomeRecord", "Starting Recording Context");
                     if (!audioContext) {
-                        audioContext = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+                        audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                            latencyHint: 'interactive'
+                        });
                     }
                     if (!audioContext.audioWorkletModuleLoaded) {
-                        const blob = new Blob([pitchShiftWorkletCode], { type: 'application/javascript' });
+                        const blob = new Blob([pitchShiftWorkletCode], {
+                            type: 'application/javascript'
+                        });
                         await audioContext.audioWorklet.addModule(URL.createObjectURL(blob));
                         audioContext.audioWorkletModuleLoaded = true;
                     }
                     if (audioContext.state === 'suspended') {
                         await audioContext.resume();
                     }
-                    
-                    const constraints = { echoCancellation: false, noiseSuppression: isHardwareNoiseOn, autoGainControl: false };
+
+                    const constraints = {
+                        echoCancellation: false,
+                        noiseSuppression: isHardwareNoiseOn,
+                        autoGainControl: false
+                    };
                     if (selectedInputId && selectedInputId !== 'default') {
-                        constraints.deviceId = { exact: selectedInputId };
+                        constraints.deviceId = {
+                            exact: selectedInputId
+                        };
                     }
-                    
+
                     AppLogger.verbose("HomeRecord", "Requesting User Media with constraints", constraints);
-                    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
+                    mediaStream = await navigator.mediaDevices.getUserMedia({
+                        audio: constraints
+                    });
                     sourceNode = audioContext.createMediaStreamSource(mediaStream);
-                    
+
                     fetchAudioInputs();
-                    
-                    rebuildAudioPipeline(); 
-                    mainSpecRef.ctx = audioContext; mainSpecRef.inAna = inputAnalyser; mainSpecRef.outAna = outputAnalyser;
-                    startSpectrumAnimation('spectrumCanvas', mainSpecRef); 
-                    
+
+                    rebuildAudioPipeline();
+                    mainSpecRef.ctx = audioContext;
+                    mainSpecRef.inAna = inputAnalyser;
+                    mainSpecRef.outAna = outputAnalyser;
+                    startSpectrumAnimation('spectrumCanvas', mainSpecRef);
+
                     document.getElementById('btnToggleRecord').textContent = '■ 停止收音';
                     document.getElementById('btnToggleRecord').className = 'btn btn-danger btn-large-toggle';
                     isRecording = true;
-                } catch (err) { 
+                } catch (err) {
                     AppLogger.error("HomeRecord", "Microphone access denied or failed", err);
-                    alert("無法存取麥克風！"); 
+                    alert("無法存取麥克風！");
                 }
             } else {
                 AppLogger.info("HomeRecord", "Stopping Recording");
                 stopSpectrumAnimation('spectrumCanvas', mainSpecRef);
-                if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
-                if (audioContext && audioContext.state === 'running') audioContext.suspend();
-                
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                }
+                if (audioContext && audioContext.state === 'running') {
+                    audioContext.suspend();
+                }
+
                 document.getElementById('btnToggleRecord').textContent = '▶ 開始收音';
                 document.getElementById('btnToggleRecord').className = 'btn btn-primary btn-large-toggle';
                 isRecording = false;
@@ -1636,19 +2630,26 @@
         let ana_audioCtx;
         let ana_sourceNode;
         let ana_mediaStream;
-        const ana_audioElement = document.getElementById('anaAudioPlayer'); 
+        const ana_audioElement = document.getElementById('anaAudioPlayer');
         let ana_fileSourceNode = null;
-        let ana_testOscillator = null; 
+        let ana_testOscillator = null;
         let ana_isPlaying = false;
         let ana_isTestingTone = false;
         let ana_isMuted = false;
-        
+
         let ana_inputAnalyser = null;
         let ana_outputAnalyser = null;
         let ana_muteNode = null;
         let ana_eqNodes = [];
         let ana_pitchNodes = [];
-        let anaSpecRef = { animId: null, view: { startFreq: 0, endFreq: 24000, minFreqSpan: 1000 } };
+        let anaSpecRef = {
+            animId: null,
+            view: {
+                startFreq: 0,
+                endFreq: 24000,
+                minFreqSpan: 1000
+            }
+        };
 
         let ana_isSoftwareNoiseOn = false;
         let ana_isHardwareNoiseOn = false;
@@ -1665,17 +2666,19 @@
 
         function createAnaBandElement(id, b) {
             const div = document.createElement('div');
-            div.className = 'ana-band-row'; 
+            div.className = 'ana-band-row';
             div.id = `ana-band-${id}`;
-            div.setAttribute('data-enabled', b ? (b.enabled ? 'true' : 'false') : 'false'); 
-            
+            div.setAttribute('data-enabled', b ? (b.enabled ? 'true' : 'false') : 'false');
+
             const fStart = b ? b.fStart : 500;
             const fEnd = b ? b.fEnd : 2000;
             const volType = b ? (b.volType || (b.type ? b.type : 'none')) : 'none';
             const gStart = b ? (b.gStart || 1.0) : 1.0;
             const gEnd = b ? (b.gEnd || 2.0) : 2.0;
             let freqType = b ? (b.freqType || 'none') : 'none';
-            if (freqType === 'shift') freqType = 'shift_gs'; // 向下相容
+            if (freqType === 'shift') {
+                freqType = 'shift_gs';
+            }
             const freqShiftVal = b ? (b.freqShiftVal || '500') : '500';
             const freqTargetStart = b ? (b.freqTargetStart || '2000') : '2000';
             const freqTargetEnd = b ? (b.freqTargetEnd || '5000') : '5000';
@@ -1757,11 +2760,15 @@
                 });
             });
             return {
-                isSoftwareNoiseOn: ana_isSoftwareNoiseOn, isScreenWakeOn: false,
-                isHardwareNoiseOn: ana_isHardwareNoiseOn, isBackgroundKeepOn: false,
+                isSoftwareNoiseOn: ana_isSoftwareNoiseOn,
+                isScreenWakeOn: false,
+                isHardwareNoiseOn: ana_isHardwareNoiseOn,
+                isBackgroundKeepOn: false,
                 volume: document.getElementById('anaVolumeSlider').value,
-                isMaxVol10: ana_isMaxVol10, isWasmEngineOn: ana_isWasmEngineOn,
-                selectedInputId: selectedInputId, bands: bands
+                isMaxVol10: ana_isMaxVol10,
+                isWasmEngineOn: ana_isWasmEngineOn,
+                selectedInputId: selectedInputId,
+                bands: bands
             };
         }
 
@@ -1781,10 +2788,16 @@
             for (const configName in ana_configDict) {
                 if (configName !== '預存變更') {
                     const opt = document.createElement('option');
-                    opt.value = configName; opt.textContent = configName; sel.appendChild(opt);
+                    opt.value = configName;
+                    opt.textContent = configName;
+                    sel.appendChild(opt);
                 }
             }
-            if(ana_configDict[currentVal]) sel.value = currentVal; else sel.value = '預存變更';
+            if (ana_configDict[currentVal]) {
+                sel.value = currentVal;
+            } else {
+                sel.value = '預存變更';
+            }
         }
 
         async function ana_applySettings(config) {
@@ -1797,7 +2810,9 @@
             document.getElementById('btnAnaHardwareNoise').className = ana_isHardwareNoiseOn ? 'btn btn-success' : 'btn btn-secondary';
             
             if (ana_isPlaying && ana_mediaStream && ana_mediaStream.getAudioTracks()[0]) {
-                ana_mediaStream.getAudioTracks()[0].applyConstraints({ noiseSuppression: ana_isHardwareNoiseOn }).catch(e=>{});
+                ana_mediaStream.getAudioTracks()[0].applyConstraints({
+                    noiseSuppression: ana_isHardwareNoiseOn
+                }).catch((e) => {});
             }
 
             ana_isMaxVol10 = config.isMaxVol10 || false;
@@ -1820,9 +2835,9 @@
             container.innerHTML = '';
             ana_bandIdCounter = 0;
             
-            if(config.bands) {
+            if (config.bands) {
                 config.bands.forEach(b => {
-                    const div = createAnaBandElement(ana_bandIdCounter++, b); 
+                    const div = createAnaBandElement(ana_bandIdCounter++, b);
                     container.appendChild(div);
                     handleVolTypeChange(div.querySelector('.vol-type'), false, true);
                     handleFreqTypeChange(div.querySelector('.freq-type'), false, true);
@@ -1832,7 +2847,9 @@
         }
 
         function ana_rebuildAudioPipeline() {
-            if (!ana_audioCtx || !ana_sourceNode) return; 
+            if (!ana_audioCtx || !ana_sourceNode) {
+                return;
+            }
             
             AppLogger.verbose("Analysis", "Rebuilding analysis audio pipeline...");
             safeDisconnect(ana_sourceNode);
@@ -1842,7 +2859,6 @@
             ana_eqNodes.forEach(safeDisconnect);
             ana_pitchNodes.forEach(safeDisconnect);
             
-            // � 修復 1：傳入 Boolean 型別的 ana_isMuted，完美解決「切換前沒聲音」的問題
             const pipeline = setupAudioPipeline(ana_audioCtx, ana_sourceNode, document.getElementById('anaVolumeSlider').value, '#anaBandsContainer .ana-band-row', ana_isSoftwareNoiseOn, ana_isMuted, ana_isWasmEngineOn);
             ana_inputAnalyser = pipeline.inAnalyser;
             ana_outputAnalyser = pipeline.outAnalyser;
@@ -1857,86 +2873,126 @@
         /* --- Analysis UI Events --- */
         document.getElementById('anaVolumeSlider').addEventListener('input', (e) => {
             document.getElementById('anaVolumeValue').textContent = e.target.value;
-            if (ana_eqNodes.length > 0 && ana_eqNodes[0].gain) ana_eqNodes[0].gain.value = e.target.value; 
-            else ana_rebuildAudioPipeline();
+            if (ana_eqNodes.length > 0 && ana_eqNodes[0].gain) {
+                ana_eqNodes[0].gain.value = e.target.value;
+            } else {
+                ana_rebuildAudioPipeline();
+            }
             ana_markConfigChanged();
         });
+
         document.getElementById('btnAnaToggleMaxVol').addEventListener('click', () => {
             ana_isMaxVol10 = !ana_isMaxVol10;
             const vs = document.getElementById('anaVolumeSlider');
             if (ana_isMaxVol10) {
-                vs.max = 10; document.getElementById('btnAnaToggleMaxVol').textContent = '上限: 10x';
+                vs.max = 10;
+                document.getElementById('btnAnaToggleMaxVol').textContent = '上限: 10x';
                 document.getElementById('btnAnaToggleMaxVol').className = 'btn btn-warning';
             } else {
-                vs.max = 5; document.getElementById('btnAnaToggleMaxVol').textContent = '上限: 5x';
+                vs.max = 5;
+                document.getElementById('btnAnaToggleMaxVol').textContent = '上限: 5x';
                 document.getElementById('btnAnaToggleMaxVol').className = 'btn btn-secondary';
-                if (parseFloat(vs.value) > 5) { vs.value = 5; document.getElementById('anaVolumeValue').textContent = '5.0'; ana_rebuildAudioPipeline(); }
+                if (parseFloat(vs.value) > 5) {
+                    vs.value = 5;
+                    document.getElementById('anaVolumeValue').textContent = '5.0';
+                    ana_rebuildAudioPipeline();
+                }
             }
             ana_markConfigChanged();
         });
+
         document.getElementById('btnAnaSoftwareNoise').addEventListener('click', () => {
             ana_isSoftwareNoiseOn = !ana_isSoftwareNoiseOn;
             const btn = document.getElementById('btnAnaSoftwareNoise');
             btn.textContent = ana_isSoftwareNoiseOn ? '人聲降噪：開' : '人聲降噪：關';
             btn.className = ana_isSoftwareNoiseOn ? 'btn btn-success' : 'btn btn-secondary';
-            ana_rebuildAudioPipeline(); ana_markConfigChanged();
+            ana_rebuildAudioPipeline();
+            ana_markConfigChanged();
         });
+
         document.getElementById('btnAnaHardwareNoise').addEventListener('click', async () => {
             ana_isHardwareNoiseOn = !ana_isHardwareNoiseOn;
             const btn = document.getElementById('btnAnaHardwareNoise');
             btn.textContent = ana_isHardwareNoiseOn ? '降噪：開' : '降噪：關';
             btn.className = ana_isHardwareNoiseOn ? 'btn btn-success' : 'btn btn-secondary';
             if (ana_isPlaying && ana_mediaStream && ana_mediaStream.getAudioTracks()[0]) {
-                await ana_mediaStream.getAudioTracks()[0].applyConstraints({ noiseSuppression: ana_isHardwareNoiseOn }).catch(e=>{});
+                await ana_mediaStream.getAudioTracks()[0].applyConstraints({
+                    noiseSuppression: isHardwareNoiseOn
+                }).catch((e) => {});
             }
             ana_markConfigChanged();
         });
+
         document.getElementById('btnAnaToggleOutput').addEventListener('click', () => {
             ana_isMuted = !ana_isMuted;
             const btn = document.getElementById('btnAnaToggleOutput');
-            btn.innerHTML = ana_isMuted ? '�播放輸出: 關' : '�播放輸出: 開';
+            btn.innerHTML = ana_isMuted ? '🔊播放輸出: 關' : '🔊播放輸出: 開';
             btn.className = ana_isMuted ? 'btn btn-secondary' : 'btn btn-success';
-            if (ana_muteNode) ana_muteNode.gain.value = ana_isMuted ? 0 : 1;
+            if (ana_muteNode) {
+                ana_muteNode.gain.value = ana_isMuted ? 0 : 1;
+            }
         });
+
         document.getElementById('btnAnaEngineMode').addEventListener('click', () => {
             ana_isWasmEngineOn = !ana_isWasmEngineOn;
             const btn = document.getElementById('btnAnaEngineMode');
             btn.textContent = ana_isWasmEngineOn ? '移頻引擎：專業 WASM' : '移頻引擎：標準 JS';
             btn.className = ana_isWasmEngineOn ? 'btn btn-info' : 'btn btn-secondary';
-            ana_rebuildAudioPipeline(); ana_markConfigChanged();
+            ana_rebuildAudioPipeline();
+            ana_markConfigChanged();
         });
 
         document.getElementById('btnAnaAddBand').addEventListener('click', () => {
             const div = createAnaBandElement(ana_bandIdCounter++, null);
             document.getElementById('anaBandsContainer').appendChild(div);
-            ana_rebuildAudioPipeline(); ana_markConfigChanged();
+            ana_rebuildAudioPipeline();
+            ana_markConfigChanged();
         });
-        document.getElementById('anaBandsContainer').addEventListener('change', (e) => { 
-            if(e.target.tagName !== 'SELECT') { ana_rebuildAudioPipeline(); ana_markConfigChanged(); }
+
+        document.getElementById('anaBandsContainer').addEventListener('change', (e) => {
+            if (e.target.tagName !== 'SELECT') {
+                ana_rebuildAudioPipeline();
+                ana_markConfigChanged();
+            }
         });
+
         function toggleAnaBand(id) {
             const row = document.getElementById(`ana-band-${id}`);
             const btn = document.getElementById(`btn-ana-toggle-${id}`);
             if (row.getAttribute('data-enabled') === 'true') {
-                row.setAttribute('data-enabled', 'false'); btn.className = 'btn btn-success btn-sm'; btn.innerText = '啟用';
+                row.setAttribute('data-enabled', 'false');
+                btn.className = 'btn btn-success btn-sm';
+                btn.innerText = '啟用';
             } else {
-                row.setAttribute('data-enabled', 'true'); btn.className = 'btn btn-warning btn-sm'; btn.innerText = '停用';
+                row.setAttribute('data-enabled', 'true');
+                btn.className = 'btn btn-warning btn-sm';
+                btn.innerText = '停用';
             }
-            ana_rebuildAudioPipeline(); ana_markConfigChanged();
+            ana_rebuildAudioPipeline();
+            ana_markConfigChanged();
         }
+
         function deleteAnaBand(id) {
             const row = document.getElementById(`ana-band-${id}`);
-            if (row) { row.remove(); ana_rebuildAudioPipeline(); ana_markConfigChanged(); }
+            if (row) {
+                row.remove();
+                ana_rebuildAudioPipeline();
+                ana_markConfigChanged();
+            }
         }
 
         /* --- Analysis Recording & File Playback --- */
         async function initAnaContext() {
             if (!ana_audioCtx) {
                 AppLogger.verbose("Analysis", "Initializing AudioContext...");
-                ana_audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+                ana_audioCtx = new (window.AudioContext || window.webkitAudioContext)({
+                    latencyHint: 'interactive'
+                });
             }
             if (!ana_audioCtx.audioWorkletModuleLoaded) {
-                const blob = new Blob([pitchShiftWorkletCode], { type: 'application/javascript' });
+                const blob = new Blob([pitchShiftWorkletCode], {
+                    type: 'application/javascript'
+                });
                 await ana_audioCtx.audioWorklet.addModule(URL.createObjectURL(blob));
                 ana_audioCtx.audioWorkletModuleLoaded = true;
             }
@@ -1949,16 +3005,22 @@
             AppLogger.info("Analysis", "Stopping audio playback/recording");
             stopSpectrumAnimation('anaSpectrumCanvas', anaSpecRef);
             
-            if (ana_mediaStream) { ana_mediaStream.getTracks().forEach(track => track.stop()); ana_mediaStream = null; }
+            if (ana_mediaStream) {
+                ana_mediaStream.getTracks().forEach(track => track.stop());
+                ana_mediaStream = null;
+            }
             
-            if (ana_audioElement && !ana_audioElement.paused) { 
-                ana_audioElement.pause(); 
-                ana_audioElement.removeAttribute('src'); 
-                ana_audioElement.load(); 
+            if (ana_audioElement && !ana_audioElement.paused) {
+                ana_audioElement.pause();
+                ana_audioElement.removeAttribute('src');
+                ana_audioElement.load();
             }
             
             if (ana_testOscillator) {
-                try { ana_testOscillator.stop(); } catch(e){}
+                try {
+                    ana_testOscillator.stop();
+                } catch (e) {
+                }
                 safeDisconnect(ana_testOscillator);
                 ana_testOscillator = null;
             }
@@ -1969,10 +3031,11 @@
             
             document.getElementById('btnAnaToggleRecord').innerHTML = '▶<br>開始收音';
             document.getElementById('btnAnaToggleRecord').className = 'btn btn-primary btn-square';
-            document.getElementById('btnAnaImportFile').innerHTML = '�<br>匯入音檔';
+            
+            document.getElementById('btnAnaImportFile').innerHTML = '📂<br>匯入音檔';
             document.getElementById('btnAnaImportFile').className = 'btn btn-info btn-square';
             
-            document.getElementById('btnAnaTestTone').innerHTML = '�<br>內建測試';
+            document.getElementById('btnAnaTestTone').innerHTML = '🎵<br>內建測試';
             document.getElementById('btnAnaTestTone').className = 'btn btn-warning btn-square';
             
             document.getElementById('anaFileInput').value = '';
@@ -1986,29 +3049,41 @@
                     AppLogger.info("AnaRecord", "Starting Recording Context");
                     await initAnaContext();
                     
-                    const constraints = { echoCancellation: false, noiseSuppression: ana_isHardwareNoiseOn, autoGainControl: false };
+                    const constraints = {
+                        echoCancellation: false,
+                        noiseSuppression: ana_isHardwareNoiseOn,
+                        autoGainControl: false
+                    };
                     if (selectedInputId && selectedInputId !== 'default') {
-                        constraints.deviceId = { exact: selectedInputId };
+                        constraints.deviceId = {
+                            exact: selectedInputId
+                        };
                     }
                     
                     AppLogger.verbose("AnaRecord", "Requesting User Media with constraints", constraints);
-                    ana_mediaStream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
+                    ana_mediaStream = await navigator.mediaDevices.getUserMedia({
+                        audio: constraints
+                    });
                     ana_sourceNode = ana_audioCtx.createMediaStreamSource(ana_mediaStream);
                     
                     fetchAudioInputs();
                     
-                    ana_rebuildAudioPipeline(); 
-                    anaSpecRef.ctx = ana_audioCtx; anaSpecRef.inAna = ana_inputAnalyser; anaSpecRef.outAna = ana_outputAnalyser;
-                    startSpectrumAnimation('anaSpectrumCanvas', anaSpecRef); 
+                    ana_rebuildAudioPipeline();
+                    anaSpecRef.ctx = ana_audioCtx;
+                    anaSpecRef.inAna = ana_inputAnalyser;
+                    anaSpecRef.outAna = ana_outputAnalyser;
+                    startSpectrumAnimation('anaSpectrumCanvas', anaSpecRef);
 
                     document.getElementById('btnAnaToggleRecord').innerHTML = '■<br>停止收音';
                     document.getElementById('btnAnaToggleRecord').className = 'btn btn-danger btn-square';
                     ana_isPlaying = true;
-                } catch (err) { 
+                } catch (err) {
                     AppLogger.error("AnaRecord", "Microphone access denied or failed", err);
-                    alert("無法存取麥克風！"); 
+                    alert("無法存取麥克風！");
                 }
-            } else stopAnaAudio();
+            } else {
+                stopAnaAudio();
+            }
         });
 
         document.getElementById('btnAnaTestTone').addEventListener('click', async () => {
@@ -2018,7 +3093,10 @@
                     await initAnaContext();
                     
                     if (ana_testOscillator) {
-                        try { ana_testOscillator.stop(); } catch(e){}
+                        try {
+                            ana_testOscillator.stop();
+                        } catch (e) {
+                        }
                         safeDisconnect(ana_testOscillator);
                     }
                     
@@ -2029,28 +3107,37 @@
                     
                     ana_sourceNode = ana_testOscillator;
                     
-                    ana_rebuildAudioPipeline(); 
-                    anaSpecRef.ctx = ana_audioCtx; anaSpecRef.inAna = ana_inputAnalyser; anaSpecRef.outAna = ana_outputAnalyser;
-                    startSpectrumAnimation('anaSpectrumCanvas', anaSpecRef); 
+                    ana_rebuildAudioPipeline();
+                    anaSpecRef.ctx = ana_audioCtx;
+                    anaSpecRef.inAna = ana_inputAnalyser;
+                    anaSpecRef.outAna = ana_outputAnalyser;
+                    startSpectrumAnimation('anaSpectrumCanvas', anaSpecRef);
 
                     document.getElementById('btnAnaTestTone').innerHTML = '■<br>停止測試';
                     document.getElementById('btnAnaTestTone').className = 'btn btn-danger btn-square';
                     ana_isPlaying = true;
                     ana_isTestingTone = true;
-                } catch (err) { 
+                } catch (err) {
                     AppLogger.error("AnaTestTone", "Failed to start test tone", err);
                 }
-            } else stopAnaAudio();
+            } else {
+                stopAnaAudio();
+            }
         });
 
         document.getElementById('btnAnaImportFile').addEventListener('click', () => {
             if (!ana_isPlaying) {
-                // 利用按鈕點擊的瞬間啟動 AudioContext，並執行 load() 來拿取授權權杖
-                if (!ana_audioCtx) ana_audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
-                if (ana_audioCtx.state === 'suspended') ana_audioCtx.resume(); 
+                if (!ana_audioCtx) {
+                    ana_audioCtx = new (window.AudioContext || window.webkitAudioContext)({
+                        latencyHint: 'interactive'
+                    });
+                }
+                if (ana_audioCtx.state === 'suspended') {
+                    ana_audioCtx.resume();
+                }
                 
-                ana_audioElement.load(); 
-                document.getElementById('anaFileInput').click(); 
+                ana_audioElement.load();
+                document.getElementById('anaFileInput').click();
             } else {
                 stopAnaAudio();
             }
@@ -2058,18 +3145,25 @@
 
         document.getElementById('anaFileInput').addEventListener('change', async (e) => {
             const file = e.target.files[0];
-            if (!file) return;
+            if (!file) {
+                return;
+            }
             
-            AppLogger.info("FileImport", "Selected file", { name: file.name, type: file.type, size: file.size });
+            AppLogger.info("FileImport", "Selected file", {
+                name: file.name,
+                type: file.type,
+                size: file.size
+            });
             
             try {
-                if (!ana_audioElement.paused) ana_audioElement.pause();
+                if (!ana_audioElement.paused) {
+                    ana_audioElement.pause();
+                }
                 ana_audioElement.src = URL.createObjectURL(file);
                 
                 AppLogger.verbose("FileImport", "Executing synchronous play() to capture user gesture token...");
                 const playPromise = ana_audioElement.play();
                 
-                // � Safari 自動恢復機制：若阻擋播放，由輕觸畫面接手
                 if (playPromise !== undefined) {
                     playPromise.catch(err => {
                         AppLogger.error("FileImport", "Audio play() rejected, activating fallback", err);
@@ -2080,7 +3174,10 @@
                                 ana_audioElement.play();
                                 AppLogger.info("FileImport", "Playback resumed via user tap fallback");
                             }
-                        }, { once: true, capture: true });
+                        }, {
+                            once: true,
+                            capture: true
+                        });
                     });
                 }
                 
@@ -2092,12 +3189,12 @@
                 }
                 
                 ana_sourceNode = ana_fileSourceNode;
-                ana_audioElement.loop = true; 
+                ana_audioElement.loop = true;
                 
                 ana_rebuildAudioPipeline();
                 
-                anaSpecRef.ctx = ana_audioCtx; 
-                anaSpecRef.inAna = ana_inputAnalyser; 
+                anaSpecRef.ctx = ana_audioCtx;
+                anaSpecRef.inAna = ana_inputAnalyser;
                 anaSpecRef.outAna = ana_outputAnalyser;
                 startSpectrumAnimation('anaSpectrumCanvas', anaSpecRef);
 
@@ -2108,7 +3205,7 @@
             } catch (err) {
                 AppLogger.error("FileImport", "Fatal error during file import execution", err);
             } finally {
-                e.target.value = ''; 
+                e.target.value = '';
             }
         });
 
@@ -2116,39 +3213,52 @@
         document.getElementById('selAnaConfig').addEventListener('change', (e) => {
             const selected = e.target.value;
             document.getElementById('btnAnaDelConfig').disabled = (selected === '預存變更');
-            if (ana_configDict[selected]) ana_applySettings(ana_configDict[selected]);
+            if (ana_configDict[selected]) {
+                ana_applySettings(ana_configDict[selected]);
+            }
         });
+
         document.getElementById('btnAnaSaveConfig').addEventListener('click', () => {
             const sel = document.getElementById('selAnaConfig');
             if (sel.value === '預存變更') {
                 const newName = '分析組態 ' + new Date().getTime().toString().slice(-4);
                 ana_configDict[newName] = ana_getCurrentSettings();
-                ana_updateConfigSelect(); sel.value = newName;
-                document.getElementById('btnAnaDelConfig').disabled = false; showToast('已暫存至分析介面');
+                ana_updateConfigSelect();
+                sel.value = newName;
+                document.getElementById('btnAnaDelConfig').disabled = false;
+                showToast('已暫存至分析介面');
             } else {
                 showConfirmDialog('確定要覆寫內容請在右邊寫上 Yes', (match) => {
-                    if(match) { ana_configDict[sel.value] = ana_getCurrentSettings(); showToast('成功'); } 
-                    else showToast('失敗');
+                    if (match) {
+                        ana_configDict[sel.value] = ana_getCurrentSettings();
+                        showToast('成功');
+                    } else {
+                        showToast('失敗');
+                    }
                 });
             }
         });
+
         document.getElementById('btnAnaDelConfig').addEventListener('click', () => {
             showConfirmDialog('確定要刪除請在右邊寫上 Yes', (match) => {
-                if(match) {
+                if (match) {
                     delete ana_configDict[document.getElementById('selAnaConfig').value];
                     ana_updateConfigSelect();
                     document.getElementById('selAnaConfig').value = '預存變更';
                     document.getElementById('btnAnaDelConfig').disabled = true;
                     ana_applySettings(ana_configDict['預存變更']);
                     showToast('成功');
-                } else showToast('失敗');
+                } else {
+                    showToast('失敗');
+                }
             });
         });
+
         document.getElementById('btnAnaCopyFromHome').addEventListener('click', () => {
             ana_configDict = JSON.parse(JSON.stringify(configDict));
             ana_updateConfigSelect();
             const homeSel = document.getElementById('selConfig').value;
-            if(ana_configDict[homeSel]) {
+            if (ana_configDict[homeSel]) {
                 document.getElementById('selAnaConfig').value = homeSel;
                 ana_applySettings(ana_configDict[homeSel]);
             } else {
@@ -2157,17 +3267,23 @@
             }
             showToast('已載入首頁組態');
         });
+
         document.getElementById('btnAnaPushToHome').addEventListener('click', () => {
             const newName = '組態 ' + configCounter++;
             configDict[newName] = ana_getCurrentSettings();
-            saveConfigToStorage(); updateHomeSelect();
+            saveConfigToStorage();
+            updateHomeSelect();
             showToast('已新增至首頁: ' + newName);
         });
 
         /* ========================================== */
         /* --- 音頻檢測 (聽力頻率測試) 邏輯            */
         /* ========================================== */
-        let testAudioCtx; let testOscillator; let testGainNode; let isTestPlaying = false; let isFullFreqMode = false;
+        let testAudioCtx;
+        let testOscillator;
+        let testGainNode;
+        let isTestPlaying = false;
+        let isFullFreqMode = false;
         const testFreqSlider = document.getElementById('testFreqSlider');
         const testFreqDisplay = document.getElementById('testFreqDisplay');
         const testVolSlider = document.getElementById('testVolSlider');
@@ -2187,9 +3303,15 @@
             if (testGainNode && testAudioCtx) {
                 testGainNode.gain.cancelScheduledValues(testAudioCtx.currentTime);
                 testGainNode.gain.setTargetAtTime(0, testAudioCtx.currentTime, 0.05);
-                setTimeout(() => { if (testAudioCtx && testAudioCtx.state === 'running') testAudioCtx.suspend(); }, 100);
+                setTimeout(() => {
+                    if (testAudioCtx && testAudioCtx.state === 'running') {
+                        testAudioCtx.suspend();
+                    }
+                }, 100);
             }
-            testPlayBtn.textContent = '▶ 開始播放'; testPlayBtn.className = 'btn btn-play-test'; isTestPlaying = false;
+            testPlayBtn.textContent = '▶ 開始播放';
+            testPlayBtn.className = 'btn btn-play-test';
+            isTestPlaying = false;
         }
 
         document.getElementById('btnToggleFreqMode').addEventListener('click', () => {
@@ -2197,54 +3319,81 @@
             const btn = document.getElementById('btnToggleFreqMode');
             const labels = document.getElementById('freqRangeLabels');
             if (isFullFreqMode) {
-                testFreqSlider.min = 5; testFreqSlider.max = 22000;
+                testFreqSlider.min = 5;
+                testFreqSlider.max = 22000;
                 labels.innerHTML = '<span>5 Hz</span><span>22000 Hz</span>';
-                btn.textContent = '切換標準頻段 (20~8000Hz)'; btn.className = 'btn btn-sm btn-primary';
-                document.getElementById('ageMarkers').style.display = 'block'; 
+                btn.textContent = '切換標準頻段 (20~8000Hz)';
+                btn.className = 'btn btn-sm btn-primary';
+                document.getElementById('ageMarkers').style.display = 'block';
             } else {
-                testFreqSlider.min = 20; testFreqSlider.max = 8000;
+                testFreqSlider.min = 20;
+                testFreqSlider.max = 8000;
                 labels.innerHTML = '<span>20 Hz</span><span>8000 Hz</span>';
-                btn.textContent = '切換全頻段 (5~22000Hz)'; btn.className = 'btn btn-sm btn-secondary';
-                document.getElementById('ageMarkers').style.display = 'none'; 
+                btn.textContent = '切換全頻段 (5~22000Hz)';
+                btn.className = 'btn btn-sm btn-secondary';
+                document.getElementById('ageMarkers').style.display = 'none';
             }
-            if (parseInt(testFreqSlider.value) > parseInt(testFreqSlider.max)) testFreqSlider.value = testFreqSlider.max;
-            else if (parseInt(testFreqSlider.value) < parseInt(testFreqSlider.min)) testFreqSlider.value = testFreqSlider.min;
+            if (parseInt(testFreqSlider.value) > parseInt(testFreqSlider.max)) {
+                testFreqSlider.value = testFreqSlider.max;
+            } else if (parseInt(testFreqSlider.value) < parseInt(testFreqSlider.min)) {
+                testFreqSlider.value = testFreqSlider.min;
+            }
             testFreqDisplay.textContent = testFreqSlider.value + ' Hz';
-            if (isTestPlaying && testOscillator) testOscillator.frequency.exponentialRampToValueAtTime(testFreqSlider.value, testAudioCtx.currentTime + 0.1);
+            if (isTestPlaying && testOscillator) {
+                testOscillator.frequency.exponentialRampToValueAtTime(testFreqSlider.value, testAudioCtx.currentTime + 0.1);
+            }
         });
 
         testFreqSlider.addEventListener('input', (e) => {
             testFreqDisplay.textContent = e.target.value + ' Hz';
-            if (isTestPlaying && testOscillator) testOscillator.frequency.exponentialRampToValueAtTime(e.target.value, testAudioCtx.currentTime + 0.1);
+            if (isTestPlaying && testOscillator) {
+                testOscillator.frequency.exponentialRampToValueAtTime(e.target.value, testAudioCtx.currentTime + 0.1);
+            }
         });
 
         testVolSlider.addEventListener('input', (e) => {
             testVolDisplay.textContent = Math.round(e.target.value * 100) + '%';
-            if (isTestPlaying && testGainNode) testGainNode.gain.setTargetAtTime(e.target.value, testAudioCtx.currentTime, 0.1);
+            if (isTestPlaying && testGainNode) {
+                testGainNode.gain.setTargetAtTime(e.target.value, testAudioCtx.currentTime, 0.1);
+            }
         });
 
-        testWaveType.addEventListener('change', (e) => { if (testOscillator) testOscillator.type = e.target.value; });
+        testWaveType.addEventListener('change', (e) => {
+            if (testOscillator) {
+                testOscillator.type = e.target.value;
+            }
+        });
 
         testPlayBtn.addEventListener('click', () => {
             if (!testAudioCtx) {
                 testAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 testOscillator = testAudioCtx.createOscillator();
-                testOscillator.type = testWaveType.value; 
-                testGainNode = testAudioCtx.createGain(); testGainNode.gain.value = 0; 
-                testOscillator.connect(testGainNode); testGainNode.connect(testAudioCtx.destination); testOscillator.start();
+                testOscillator.type = testWaveType.value;
+                testGainNode = testAudioCtx.createGain();
+                testGainNode.gain.value = 0;
+                testOscillator.connect(testGainNode);
+                testGainNode.connect(testAudioCtx.destination);
+                testOscillator.start();
             }
             if (!isTestPlaying) {
-                if(testAudioCtx.state === 'suspended') testAudioCtx.resume(); 
+                if (testAudioCtx.state === 'suspended') {
+                    testAudioCtx.resume();
+                }
                 testOscillator.frequency.setValueAtTime(testFreqSlider.value, testAudioCtx.currentTime);
                 testGainNode.gain.cancelScheduledValues(testAudioCtx.currentTime);
-                testGainNode.gain.setValueAtTime(0, testAudioCtx.currentTime); 
+                testGainNode.gain.setValueAtTime(0, testAudioCtx.currentTime);
                 testGainNode.gain.linearRampToValueAtTime(parseFloat(testVolSlider.value), testAudioCtx.currentTime + 3.0);
-                testPlayBtn.textContent = '■ 停止播放'; testPlayBtn.className = 'btn btn-stop-test'; isTestPlaying = true;
-            } else stopTestAudio(); 
+                testPlayBtn.textContent = '■ 停止播放';
+                testPlayBtn.className = 'btn btn-stop-test';
+                isTestPlaying = true;
+            } else {
+                stopTestAudio();
+            }
         });
 
         function saveTestRecord(note) {
-            const freq = testFreqSlider.value; const now = new Date();
+            const freq = testFreqSlider.value;
+            const now = new Date();
             const timeString = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0') + ':' + now.getSeconds().toString().padStart(2, '0');
             document.getElementById('testRecordItemsContainer').insertAdjacentHTML('afterbegin', `
                 <div class="record-item">
@@ -2255,12 +3404,18 @@
                 </div>
             `);
         }
-        function clearAllTestRecords() { document.getElementById('testRecordItemsContainer').innerHTML = ''; }
+        
+        function clearAllTestRecords() {
+            document.getElementById('testRecordItemsContainer').innerHTML = '';
+        }
 
         /* ========================================== */
         /* --- Service Worker 註冊 ---                 */
         /* ========================================== */
-        if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(e=>{});
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch((e) => {
+            });
+        }
     </script>
 </body>
 </html>
