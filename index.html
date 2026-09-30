@@ -611,7 +611,7 @@
                     </div>
                 </div>
 
-                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.29</p>
+                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.30</p>
             </div>
 
             <!-- ========================================== -->
@@ -621,7 +621,7 @@
                 <div class="card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                         <h2 style="margin-top: 0; margin-bottom: 0;">聽力頻率測試</h2>
-                        <!-- 🌟 測試功能 1：跨分頁播放開關 -->
+                        <!-- � 測試功能 1：跨分頁播放開關 -->
                         <button id="btnTestKeepPlaying" class="btn btn-sm btn-secondary" style="width: auto;">跨分頁持續播放 (關)</button>
                     </div>
 
@@ -1044,8 +1044,8 @@
                     }
                 };
 
-                // 產生 63-tap FIR 希爾伯特濾波器係數
-                this.numTaps = 63;
+                // 🌟 升級：增加 FIR 長度至 255 點，大幅提升相位精準度
+                this.numTaps = 255;
                 this.h = new Float32Array(this.numTaps);
                 this.delayLine = new Float32Array(this.numTaps);
                 this.delayIdx = 0;
@@ -1056,8 +1056,8 @@
                     if (n % 2 !== 0) {
                         this.h[i] = 2.0 / (Math.PI * n);
                     }
-                    // 加上 Hamming window 減少截斷效應
-                    this.h[i] *= (0.54 - 0.46 * Math.cos(2 * Math.PI * i / (this.numTaps - 1)));
+                    // 🌟 升級：套用 Blackman Window 以獲得更好的下邊帶抑制
+                    this.h[i] *= (0.42 - 0.5 * Math.cos(2 * Math.PI * i / (this.numTaps - 1)) + 0.08 * Math.cos(4 * Math.PI * i / (this.numTaps - 1)));
                 }
             }
             process(inputs, outputs) {
@@ -1209,7 +1209,7 @@
                 }
                 
                 if (this.isWasmReady) {
-                    // 若有真實掛載的 WASM 模組，可在此呼叫其 _process()
+                    // WASM Hook 預留(若有真實掛載的 WASM 模組，可在此呼叫其 _process())
                 }
 
                 // 啟動高品質 Fallback 演算法
@@ -1463,6 +1463,33 @@
         }
 
         /* ========================================== */
+        /* --- 🌟 磚牆濾波器輔助函式 (Brickwall) ---      */
+        /* ========================================== */
+        function createSteepFilter(ctx, type, freq, cascades) {
+            let nodes = [];
+            let prevNode = null;
+            
+            for (let i = 0; i < cascades; i++) {
+                let node = ctx.createBiquadFilter();
+                node.type = type;
+                node.frequency.value = freq;
+                
+                if (prevNode) {
+                    prevNode.connect(node);
+                }
+                
+                nodes.push(node);
+                prevNode = node;
+            }
+            
+            return {
+                inNode: nodes[0],
+                outNode: nodes[nodes.length - 1],
+                allNodes: nodes
+            };
+        }
+
+        /* ========================================== */
         /* --- Audio Pipeline Core Setup ---          */
         /* ========================================== */
         function setupAudioPipeline(context, source, gainVal, rowsSelector, isSoftwareNoise, isOutputMuted = false, isWasmEngine = false) {
@@ -1587,24 +1614,13 @@
                         shift: shiftVal
                     });
 
-                    const lpOriginal1 = context.createBiquadFilter();
-                    lpOriginal1.type = 'lowpass';
-                    lpOriginal1.frequency.value = fStart;
-                    const lpOriginal2 = context.createBiquadFilter();
-                    lpOriginal2.type = 'lowpass';
-                    lpOriginal2.frequency.value = fStart;
-                    const hpOriginal1 = context.createBiquadFilter();
-                    hpOriginal1.type = 'highpass';
-                    hpOriginal1.frequency.value = fEnd;
-                    const hpOriginal2 = context.createBiquadFilter();
-                    hpOriginal2.type = 'highpass';
-                    hpOriginal2.frequency.value = fEnd;
-                    const hpBand = context.createBiquadFilter();
-                    hpBand.type = 'highpass';
-                    hpBand.frequency.value = fStart;
-                    const lpBand = context.createBiquadFilter();
-                    lpBand.type = 'lowpass';
-                    lpBand.frequency.value = fEnd;
+                    // 🌟 升級：使用 4 連串級的陡峭濾波器 (-48dB/octave) 徹底消除漏音
+                    const bypassHpCascade = createSteepFilter(context, 'highpass', fEnd, 4);
+                    const bypassLpCascade = createSteepFilter(context, 'lowpass', fStart, 4);
+                    const hpBandCascade = createSteepFilter(context, 'highpass', fStart, 4);
+                    const lpBandCascade = createSteepFilter(context, 'lowpass', fEnd, 4);
+                    const hpTargetCascade = createSteepFilter(context, 'highpass', tStart, 4);
+                    const lpTargetCascade = createSteepFilter(context, 'lowpass', tEnd, 4);
 
                     const pitchShifter = new AudioWorkletNode(context, processorName);
                     
@@ -1619,34 +1635,32 @@
                         });
                     }
                     
-                    const hpTarget = context.createBiquadFilter();
-                    hpTarget.type = 'highpass';
-                    hpTarget.frequency.value = tStart;
-                    const lpTarget = context.createBiquadFilter();
-                    lpTarget.type = 'lowpass';
-                    lpTarget.frequency.value = tEnd;
-
                     const mixer = context.createGain();
 
-                    const bypassHp = context.createBiquadFilter();
-                    bypassHp.type = 'highpass';
-                    bypassHp.frequency.value = fEnd;
-                    const bypassLp = context.createBiquadFilter();
-                    bypassLp.type = 'lowpass';
-                    bypassLp.frequency.value = fStart;
-
-                    currentNode.connect(bypassHp);
-                    bypassHp.connect(mixer);
-                    currentNode.connect(bypassLp);
-                    bypassLp.connect(mixer);
+                    currentNode.connect(bypassHpCascade.inNode);
+                    bypassHpCascade.outNode.connect(mixer);
                     
-                    currentNode.connect(hpBand);
-                    hpBand.connect(lpBand);
-                    lpBand.connect(pitchShifter);
-                    pitchShifter.connect(mixer);
+                    currentNode.connect(bypassLpCascade.inNode);
+                    bypassLpCascade.outNode.connect(mixer);
+                    
+                    currentNode.connect(hpBandCascade.inNode);
+                    hpBandCascade.outNode.connect(lpBandCascade.inNode);
+                    lpBandCascade.outNode.connect(pitchShifter);
+                    
+                    pitchShifter.connect(hpTargetCascade.inNode);
+                    hpTargetCascade.outNode.connect(lpTargetCascade.inNode);
+                    lpTargetCascade.outNode.connect(mixer);
 
                     currentNode = mixer;
-                    pitchNodes.push(bypassHp, bypassLp, hpBand, lpBand, pitchShifter, mixer);
+                    
+                    pitchNodes.push(...bypassHpCascade.allNodes);
+                    pitchNodes.push(...bypassLpCascade.allNodes);
+                    pitchNodes.push(...hpBandCascade.allNodes);
+                    pitchNodes.push(...lpBandCascade.allNodes);
+                    pitchNodes.push(...hpTargetCascade.allNodes);
+                    pitchNodes.push(...lpTargetCascade.allNodes);
+                    pitchNodes.push(pitchShifter);
+                    pitchNodes.push(mixer);
                 }
             });
 
@@ -2169,7 +2183,7 @@
             const gEnd = b ? (b.gEnd || 2.0) : 2.0;
             let freqType = b ? (b.freqType || 'none') : 'none';
             if (freqType === 'shift') {
-                freqType = 'shift_gs';
+                freqType = 'shift_gs'; // 向下相容
             }
             const freqShiftVal = b ? (b.freqShiftVal || '500') : '500';
             const freqTargetStart = b ? (b.freqTargetStart || '2000') : '2000';
