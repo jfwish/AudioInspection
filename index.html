@@ -611,7 +611,7 @@
                     </div>
                 </div>
 
-                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.31</p>
+                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.32</p>
             </div>
 
             <!-- ========================================== -->
@@ -1393,6 +1393,7 @@
         /* ========================================== */
         /* --- Utils: Tab Switching ---               */
         /* ========================================== */
+        // � 測試功能 1：跨頁籤狀態旗標
         let isTestKeepPlaying = false;
 
         function triggerCanvasResize() {
@@ -1423,6 +1424,7 @@
 
             triggerCanvasResize();
 
+            // � 判斷是否需要關閉「音頻檢測」的聲音
             if (tabId !== 'audio-test' && typeof isTestPlaying !== 'undefined' && isTestPlaying) {
                 if (!isTestKeepPlaying) {
                     AppLogger.verbose("UI", "Stopping audio test due to tab switch");
@@ -1580,46 +1582,16 @@
                 }
 
                 if (freqType !== 'none' && context.audioWorkletModuleLoaded) {
-                    let targetRatio = 1.0;
-                    let tStart = fStart;
-                    let tEnd = fEnd;
-                    let processorName = isWasmEngine ? 'wasm-phase-vocoder-processor' : 'pitch-shift-processor';
-                    let shiftVal = 0;
-
-                    if (freqType.startsWith('shift')) {
-                        shiftVal = parseFloat(row.querySelector('.freq-shift-val').value);
-                        const centerFreq = Math.max(100, (fStart + fEnd) / 2);
-                        targetRatio = 1.0 + (shiftVal / centerFreq);
-                        tStart = Math.max(20, fStart + shiftVal);
-                        tEnd = Math.max(20, fEnd + shiftVal);
-                        
-                        if (freqType === 'shift_gs') {
-                            processorName = isWasmEngine ? 'wasm-phase-vocoder-processor' : 'pitch-shift-processor';
-                        }
-                        if (freqType === 'shift_ht') {
-                            processorName = 'fs-ht-processor';
-                        }
-                        if (freqType === 'shift_fft') {
-                            processorName = 'ps-fft-processor';
-                        }
-                    } else {
-                        tStart = parseFloat(row.querySelector('.freq-target-start').value);
-                        tEnd = parseFloat(row.querySelector('.freq-target-end').value);
-                        targetRatio = Math.max(0.1, (tEnd - tStart) / (fEnd - fStart));
-                        if (freqType === 'scale_curve') {
-                            targetRatio *= 1.15;
-                        }
-                        if (freqType === 'scale_inv_curve') {
-                            targetRatio *= 0.85;
-                        }
-                        
-                        processorName = isWasmEngine ? 'wasm-phase-vocoder-processor' : 'pitch-shift-processor';
-                    }
+                    const shiftVal = parseFloat(row.querySelector('.freq-shift-val') ? row.querySelector('.freq-shift-val').value : '500');
+                    const ratioVal = parseFloat(row.querySelector('.freq-ratio-val') ? row.querySelector('.freq-ratio-val').value : '1.5');
+                    const tStart = parseFloat(row.querySelector('.freq-target-start') ? row.querySelector('.freq-target-start').value : '2000');
+                    const tEnd = parseFloat(row.querySelector('.freq-target-end') ? row.querySelector('.freq-target-end').value : '5000');
                     
                     AppLogger.verbose("DSP", "Applying Frequency Processor", {
-                        type: processorName,
-                        ratio: targetRatio,
-                        shift: shiftVal
+                        type: freqType,
+                        shift: shiftVal,
+                        ratio: ratioVal,
+                        target: [tStart, tEnd]
                     });
 
                     // � 升級：使用 4 連串級的陡峭濾波器 (-48dB/octave) 徹底消除漏音
@@ -1627,21 +1599,6 @@
                     const bypassLpCascade = createSteepFilter(context, 'lowpass', fStart, 4);
                     const hpBandCascade = createSteepFilter(context, 'highpass', fStart, 4);
                     const lpBandCascade = createSteepFilter(context, 'lowpass', fEnd, 4);
-                    const hpTargetCascade = createSteepFilter(context, 'highpass', tStart, 4);
-                    const lpTargetCascade = createSteepFilter(context, 'lowpass', tEnd, 4);
-
-                    const pitchShifter = new AudioWorkletNode(context, processorName);
-                    
-                    if (processorName === 'fs-ht-processor') {
-                        pitchShifter.port.postMessage({
-                            shiftHz: shiftVal,
-                            sampleRate: context.sampleRate
-                        });
-                    } else {
-                        pitchShifter.port.postMessage({
-                            pitchRatio: targetRatio
-                        });
-                    }
                     
                     const mixer = context.createGain();
 
@@ -1653,22 +1610,69 @@
                     
                     currentNode.connect(hpBandCascade.inNode);
                     hpBandCascade.outNode.connect(lpBandCascade.inNode);
-                    lpBandCascade.outNode.connect(pitchShifter);
                     
-                    pitchShifter.connect(hpTargetCascade.inNode);
-                    hpTargetCascade.outNode.connect(lpTargetCascade.inNode);
-                    lpTargetCascade.outNode.connect(mixer);
-
-                    currentNode = mixer;
+                    let bandOutputNode = lpBandCascade.outNode;
                     
                     pitchNodes.push(...bypassHpCascade.allNodes);
                     pitchNodes.push(...bypassLpCascade.allNodes);
                     pitchNodes.push(...hpBandCascade.allNodes);
                     pitchNodes.push(...lpBandCascade.allNodes);
-                    pitchNodes.push(...hpTargetCascade.allNodes);
-                    pitchNodes.push(...lpTargetCascade.allNodes);
-                    pitchNodes.push(pitchShifter);
+
+                    if (freqType === 'shift') {
+                        const htShifter = new AudioWorkletNode(context, 'fs-ht-processor');
+                        htShifter.port.postMessage({
+                            shiftHz: shiftVal,
+                            sampleRate: context.sampleRate
+                        });
+                        
+                        bandOutputNode.connect(htShifter);
+                        htShifter.connect(mixer);
+                        pitchNodes.push(htShifter);
+                        
+                    } else if (freqType === 'scale_ratio') {
+                        const scaleProcessor = isWasmEngine ? 'wasm-phase-vocoder-processor' : 'ps-fft-processor';
+                        const scaler = new AudioWorkletNode(context, scaleProcessor);
+                        scaler.port.postMessage({
+                            pitchRatio: ratioVal
+                        });
+                        
+                        bandOutputNode.connect(scaler);
+                        scaler.connect(mixer);
+                        pitchNodes.push(scaler);
+                        
+                    } else if (freqType === 'scale_range') {
+                        // � 雙引擎自動串接：算出倍率 (a) 與平移補償 (b)
+                        const ratio = Math.max(0.1, (tEnd - tStart) / (fEnd - fStart));
+                        const shift = tStart - (fStart * ratio);
+                        
+                        const scaleProcessor = isWasmEngine ? 'wasm-phase-vocoder-processor' : 'ps-fft-processor';
+                        const scaler = new AudioWorkletNode(context, scaleProcessor);
+                        scaler.port.postMessage({
+                            pitchRatio: ratio
+                        });
+                        
+                        const htShifter = new AudioWorkletNode(context, 'fs-ht-processor');
+                        htShifter.port.postMessage({
+                            shiftHz: shift,
+                            sampleRate: context.sampleRate
+                        });
+                        
+                        const hpTargetCascade = createSteepFilter(context, 'highpass', tStart, 4);
+                        const lpTargetCascade = createSteepFilter(context, 'lowpass', tEnd, 4);
+                        
+                        bandOutputNode.connect(scaler);
+                        scaler.connect(htShifter);
+                        htShifter.connect(hpTargetCascade.inNode);
+                        hpTargetCascade.outNode.connect(lpTargetCascade.inNode);
+                        lpTargetCascade.outNode.connect(mixer);
+                        
+                        pitchNodes.push(scaler, htShifter);
+                        pitchNodes.push(...hpTargetCascade.allNodes);
+                        pitchNodes.push(...lpTargetCascade.allNodes);
+                    }
+                    
                     pitchNodes.push(mixer);
+                    currentNode = mixer;
                 }
             });
 
@@ -2095,9 +2099,10 @@
                     gStart: row.querySelector('.g-start').value,
                     gEnd: row.querySelector('.g-end').value,
                     freqType: row.querySelector('.freq-type').value,
-                    freqShiftVal: row.querySelector('.freq-shift-val').value,
-                    freqTargetStart: row.querySelector('.freq-target-start').value,
-                    freqTargetEnd: row.querySelector('.freq-target-end').value,
+                    freqShiftVal: row.querySelector('.freq-shift-val') ? row.querySelector('.freq-shift-val').value : '500',
+                    freqRatioVal: row.querySelector('.freq-ratio-val') ? row.querySelector('.freq-ratio-val').value : '1.5',
+                    freqTargetStart: row.querySelector('.freq-target-start') ? row.querySelector('.freq-target-start').value : '2000',
+                    freqTargetEnd: row.querySelector('.freq-target-end') ? row.querySelector('.freq-target-end').value : '5000',
                     enabled: row.getAttribute('data-enabled') === 'true'
                 });
             });
@@ -2190,10 +2195,11 @@
             const gStart = b ? (b.gStart || 1.0) : 1.0;
             const gEnd = b ? (b.gEnd || 2.0) : 2.0;
             let freqType = b ? (b.freqType || 'none') : 'none';
-            if (freqType === 'shift') {
-                freqType = 'shift_gs'; // 向下相容
+            if (['shift_gs', 'shift_ht', 'shift_fft', 'scale_linear', 'scale_curve', 'scale_inv_curve'].includes(freqType)) {
+                freqType = freqType.startsWith('shift') ? 'shift' : 'scale_range';
             }
             const freqShiftVal = b ? (b.freqShiftVal || '500') : '500';
+            const freqRatioVal = b ? (b.freqRatioVal || '1.5') : '1.5';
             const freqTargetStart = b ? (b.freqTargetStart || '2000') : '2000';
             const freqTargetEnd = b ? (b.freqTargetEnd || '5000') : '5000';
             const enabled = b ? b.enabled : false;
@@ -2232,19 +2238,18 @@
                     <div><strong style="color:#28a745;">【音頻區】</strong> <strong style="margin-left: 5px;">模式:</strong></div>
                     <select class="freq-type" style="padding: 5px;" onchange="handleFreqTypeChange(this, true, false)">
                         <option value="none" ${freqType==='none'?'selected':''}>無 (不調整)</option>
-                        <option value="shift_gs" ${freqType==='shift_gs'?'selected':''}>FS-GS 增益 (顆粒合成)</option>
-                        <option value="shift_ht" ${freqType==='shift_ht'?'selected':''}>FS-HT 增益 (希爾伯特)</option>
-                        <option value="shift_fft" ${freqType==='shift_fft'?'selected':''}>PS-FFT 增益 (聲碼器)</option>
-                        <option value="scale_linear" ${freqType==='scale_linear'?'selected':''}>等量縮放</option>
-                        <option value="scale_curve" ${freqType==='scale_curve'?'selected':''}>整曲線縮放</option>
-                        <option value="scale_inv_curve" ${freqType==='scale_inv_curve'?'selected':''}>反曲線縮放</option>
+                        <option value="shift" ${freqType==='shift'?'selected':''}>純平移 (加法位移)</option>
+                        <option value="scale_ratio" ${freqType==='scale_ratio'?'selected':''}>等量倍率 (純縮放)</option>
+                        <option value="scale_range" ${freqType==='scale_range'?'selected':''}>等量範圍 (邊界對齊)</option>
                     </select>
                     <div class="freq-params" style="display:${freqType==='none'?'none':'inline-flex'}; align-items: center; gap: 5px; margin-left: auto;">
-                        <strong style="display:${freqType==='none'?'none':'inline'}">調頻:</strong>
-                        <span class="freq-shift-ui" style="display:${freqType.startsWith('shift')?'inline-block':'none'};">
-                            <input type="number" class="freq-shift-val" value="${freqShiftVal}" style="width: 65px; padding: 5px;"> Hz
+                        <span class="freq-shift-ui" style="display:${freqType==='shift'?'inline-block':'none'};">
+                            調頻 <input type="number" class="freq-shift-val" value="${freqShiftVal}" style="width: 65px; padding: 5px;"> Hz
                         </span>
-                        <span class="freq-scale-ui" style="display:${freqType!=='none'&&!freqType.startsWith('shift')?'inline-block':'none'};">
+                        <span class="freq-ratio-ui" style="display:${freqType==='scale_ratio'?'inline-block':'none'};">
+                            倍率(x) <input type="number" class="freq-ratio-val" value="${freqRatioVal}" step="0.1" min="0.1" max="10" style="width: 55px; padding: 5px;">
+                        </span>
+                        <span class="freq-scale-ui" style="display:${freqType==='scale_range'?'inline-block':'none'};">
                             目標 <input type="number" class="freq-target-start" value="${freqTargetStart}" style="width: 65px; padding: 5px;"> ~
                             <input type="number" class="freq-target-end" value="${freqTargetEnd}" style="width: 65px; padding: 5px;"> Hz
                         </span>
@@ -2288,6 +2293,7 @@
             }
             const freqParams = row.querySelector('.freq-params');
             const shiftUi = row.querySelector('.freq-shift-ui');
+            const ratioUi = row.querySelector('.freq-ratio-ui');
             const scaleUi = row.querySelector('.freq-scale-ui');
             const val = selectElem.value;
 
@@ -2295,13 +2301,9 @@
                 freqParams.style.display = 'none';
             } else {
                 freqParams.style.display = 'inline-flex';
-                if (val.startsWith('shift')) {
-                    shiftUi.style.display = 'inline-block';
-                    scaleUi.style.display = 'none';
-                } else {
-                    shiftUi.style.display = 'none';
-                    scaleUi.style.display = 'inline-block';
-                }
+                shiftUi.style.display = val === 'shift' ? 'inline-block' : 'none';
+                ratioUi.style.display = val === 'scale_ratio' ? 'inline-block' : 'none';
+                scaleUi.style.display = val === 'scale_range' ? 'inline-block' : 'none';
             }
             
             if (triggerRebuild) {
@@ -2698,10 +2700,11 @@
             const gStart = b ? (b.gStart || 1.0) : 1.0;
             const gEnd = b ? (b.gEnd || 2.0) : 2.0;
             let freqType = b ? (b.freqType || 'none') : 'none';
-            if (freqType === 'shift') {
-                freqType = 'shift_gs';
+            if (['shift_gs', 'shift_ht', 'shift_fft', 'scale_linear', 'scale_curve', 'scale_inv_curve'].includes(freqType)) {
+                freqType = freqType.startsWith('shift') ? 'shift' : 'scale_range';
             }
             const freqShiftVal = b ? (b.freqShiftVal || '500') : '500';
+            const freqRatioVal = b ? (b.freqRatioVal || '1.5') : '1.5';
             const freqTargetStart = b ? (b.freqTargetStart || '2000') : '2000';
             const freqTargetEnd = b ? (b.freqTargetEnd || '5000') : '5000';
             const enabled = b ? b.enabled : false;
@@ -2743,19 +2746,19 @@
                         <strong style="color:#28a745;">【音頻】</strong>
                         <select class="freq-type" onchange="handleFreqTypeChange(this, true, true)">
                             <option value="none" ${freqType==='none'?'selected':''}>無 (不調整)</option>
-                            <option value="shift_gs" ${freqType==='shift_gs'?'selected':''}>FS-GS 增益 (顆粒)</option>
-                            <option value="shift_ht" ${freqType==='shift_ht'?'selected':''}>FS-HT 增益 (單邊帶)</option>
-                            <option value="shift_fft" ${freqType==='shift_fft'?'selected':''}>PS-FFT 增益 (聲碼器)</option>
-                            <option value="scale_linear" ${freqType==='scale_linear'?'selected':''}>等量</option>
-                            <option value="scale_curve" ${freqType==='scale_curve'?'selected':''}>整曲</option>
-                            <option value="scale_inv_curve" ${freqType==='scale_inv_curve'?'selected':''}>反曲</option>
+                            <option value="shift" ${freqType==='shift'?'selected':''}>純平移 (加法位移)</option>
+                            <option value="scale_ratio" ${freqType==='scale_ratio'?'selected':''}>等量倍率 (純縮放)</option>
+                            <option value="scale_range" ${freqType==='scale_range'?'selected':''}>等量範圍 (邊界對齊)</option>
                         </select>
                         <div class="freq-params" style="display:${freqType==='none'?'none':'inline-flex'}; align-items: center; gap: 4px; margin-left: 5px;">
-                            <span class="freq-shift-ui" style="display:${freqType.startsWith('shift')?'inline-block':'none'};">
-                                <input type="number" class="freq-shift-val" value="${freqShiftVal}" style="width: 50px;">Hz
+                            <span class="freq-shift-ui" style="display:${freqType==='shift'?'inline-block':'none'};">
+                                調頻 <input type="number" class="freq-shift-val" value="${freqShiftVal}" style="width: 50px;">Hz
                             </span>
-                            <span class="freq-scale-ui" style="display:${freqType!=='none'&&!freqType.startsWith('shift')?'inline-block':'none'};">
-                                <input type="number" class="freq-target-start" value="${freqTargetStart}" style="width: 50px;">~
+                            <span class="freq-ratio-ui" style="display:${freqType==='scale_ratio'?'inline-block':'none'};">
+                                倍率(x) <input type="number" class="freq-ratio-val" value="${freqRatioVal}" step="0.1" min="0.1" max="10" style="width: 45px;">
+                            </span>
+                            <span class="freq-scale-ui" style="display:${freqType==='scale_range'?'inline-block':'none'};">
+                                目標 <input type="number" class="freq-target-start" value="${freqTargetStart}" style="width: 50px;">~
                                 <input type="number" class="freq-target-end" value="${freqTargetEnd}" style="width: 50px;">Hz
                             </span>
                         </div>
@@ -2775,9 +2778,10 @@
                     gStart: row.querySelector('.g-start').value,
                     gEnd: row.querySelector('.g-end').value,
                     freqType: row.querySelector('.freq-type').value,
-                    freqShiftVal: row.querySelector('.freq-shift-val').value,
-                    freqTargetStart: row.querySelector('.freq-target-start').value,
-                    freqTargetEnd: row.querySelector('.freq-target-end').value,
+                    freqShiftVal: row.querySelector('.freq-shift-val') ? row.querySelector('.freq-shift-val').value : '500',
+                    freqRatioVal: row.querySelector('.freq-ratio-val') ? row.querySelector('.freq-ratio-val').value : '1.5',
+                    freqTargetStart: row.querySelector('.freq-target-start') ? row.querySelector('.freq-target-start').value : '2000',
+                    freqTargetEnd: row.querySelector('.freq-target-end') ? row.querySelector('.freq-target-end').value : '5000',
                     enabled: row.getAttribute('data-enabled') === 'true'
                 });
             });
