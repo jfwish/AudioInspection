@@ -544,7 +544,7 @@
 
                         <button id="btnEngineMode" class="btn btn-sm btn-secondary">移頻引擎：標準 JS</button>
                         <select id="selInputMode" class="btn btn-sm btn-secondary" style="text-align: center; appearance: none; font-weight: bold;">
-                            <option value="default" selected>�輸入：系統預設</option>
+                            <option value="default" selected>🎤輸入：系統預設</option>
                         </select>
                     </div>
 
@@ -591,7 +591,7 @@
 
                 <div class="card debug-panel" id="debugPanelUI">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <h3 style="margin: 0; color: #fff;">�️ 系統除錯 (Debug)</h3>
+                        <h3 style="margin: 0; color: #fff;">🛠️ 系統除錯 (Debug)</h3>
                         <select id="selDebugLevel" class="debug-select">
                             <option value="0">0: 關閉 (Off)</option>
                             <option value="1">1: 僅錯誤 (Err)</option>
@@ -603,9 +603,9 @@
                     <div id="debugContentWrapper" style="display: none;">
                         <textarea id="debugTextArea" class="debug-textarea" readonly></textarea>
                         <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-sm btn-secondary" onclick="AppLogger.copyToClipboard()">� 複製</button>
-                            <button class="btn btn-sm btn-info" onclick="AppLogger.shareLog()">� 分享/匯出檔</button>
-                            <button class="btn btn-sm btn-danger" onclick="AppLogger.clear()">�️ 清空</button>
+                            <button class="btn btn-sm btn-secondary" onclick="AppLogger.copyToClipboard()">📋 複製</button>
+                            <button class="btn btn-sm btn-info" onclick="AppLogger.shareLog()">📤 分享/匯出檔</button>
+                            <button class="btn btn-sm btn-danger" onclick="AppLogger.clear()">🗑️ 清空</button>
                         </div>
                         <p style="color: #888; font-size: 10px; margin-top: 8px; margin-bottom: 0;">註：分享功能可直接將日誌存入 Google Drive、iCloud 或透過 LINE 傳送以達雲端備份效果。</p>
                     </div>
@@ -621,7 +621,7 @@
                 <div class="card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                         <h2 style="margin-top: 0; margin-bottom: 0;">聽力頻率測試</h2>
-                        <!-- � 測試功能 1：跨分頁播放開關 -->
+                        <!-- 🌟 測試功能 1：跨分頁播放開關 -->
                         <button id="btnTestKeepPlaying" class="btn btn-sm btn-secondary" style="width: auto;">跨分頁持續播放 (關)</button>
                     </div>
 
@@ -718,13 +718,13 @@
                             <div style="display: flex; gap: 5px; align-items: center; width: 100%;">
                                 <button id="btnAnaSoftwareNoise" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">人聲降噪：關</button>
                                 <button id="btnAnaHardwareNoise" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">降噪：關</button>
-                                <button id="btnAnaToggleOutput" class="btn btn-success" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">�播放輸出: 開</button>
+                                <button id="btnAnaToggleOutput" class="btn btn-success" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">🔊播放輸出: 開</button>
                             </div>
 
                             <div style="display: flex; gap: 5px; align-items: center; width: 100%;">
                                 <button id="btnAnaEngineMode" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; display: flex; justify-content: center; align-items: center; white-space: nowrap;">移頻引擎：標準 JS</button>
                                 <select id="selAnaInputMode" class="btn btn-secondary" style="flex: 1; padding: 0; height: 28px; font-size: 12px; text-align: center; appearance: none; font-weight: bold;">
-                                    <option value="default" selected>�輸入：系統預設</option>
+                                    <option value="default" selected>🎤輸入：系統預設</option>
                                 </select>
                             </div>
                         </div>
@@ -735,12 +735,12 @@
                         <div class="ana-divider"></div>
 
                         <!-- C. 匯入音檔 (正方形) -->
-                        <button id="btnAnaImportFile" class="btn btn-info btn-square" style="width: 80px; height: 80px; font-size: 14px; align-self: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">�<br>匯入音檔</button>
+                        <button id="btnAnaImportFile" class="btn btn-info btn-square" style="width: 80px; height: 80px; font-size: 14px; align-self: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">📂<br>匯入音檔</button>
                         <!-- ⚠️ 擴充 accept 屬性：允許音檔與影片，明確指定副檔名以防 iOS 灰階禁用 -->
                         <input type="file" id="anaFileInput" accept="audio/*, video/*, .mp3, .wav, .m4a, .mp4, .mov" style="display: none;">
                         <div class="ana-divider"></div>
 
-                        <!-- � 測試功能 2：D. 內建測試音源 (正方形 + 下拉選單) -->
+                        <!-- 🌟 測試功能 2：D. 內建測試音源 (正方形 + 下拉選單) -->
                         <div style="display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; width: 80px;">
                             <button id="btnAnaTestTone" class="btn btn-warning btn-square" style="width: 80px; height: 60px; font-size: 14px; padding: 2px;">�<br>內建測試</button>
                             <select id="selAnaTestType" class="btn btn-secondary" style="width: 100%; font-size: 12px; padding: 2px; text-align: center;">
@@ -796,7 +796,7 @@
 
     <script>
         /* ========================================================================= */
-        /* � 核心除錯常數與日誌系統 (動態 UI 調整版) �                                  */
+        /* 🌟 核心除錯常數與日誌系統 (動態 UI 調整版) 🌟                                  */
         /* ========================================================================= */
 
         let DEBUG_LEVEL = parseInt(localStorage.getItem('pwa_debug_level') || '0', 10);
@@ -963,7 +963,7 @@
         });
 
         /* ========================================================================= */
-        /* � [AudioWorklet] 三種調頻引擎核心實作 (FS-GS, FS-HT, PS-FFT)               */
+        /* 🌟 [AudioWorklet] 三種調頻引擎核心實作 (FS-GS, FS-HT, PS-FFT)               */
         /* ========================================================================= */
         const pitchShiftWorkletCode = `
         // 1. FS-GS 引擎 (Granular Synthesis) - 會有邊帶毛刺
@@ -1296,14 +1296,14 @@
                 if (!el) {
                     return;
                 }
-                el.innerHTML = '<option value="default">�輸入：系統預設</option>';
+                el.innerHTML = '<option value="default">🎤輸入：系統預設</option>';
 
                 audioInputDevices.forEach((device, index) => {
                     const label = device.label || `外接裝置/麥克風 ${index + 1}`;
                     if (device.deviceId && device.deviceId !== 'default' && device.deviceId !== 'communications') {
                         const opt = document.createElement('option');
                         opt.value = device.deviceId;
-                        opt.textContent = `�輸入：${label}`;
+                        opt.textContent = `🎤輸入：${label}`;
                         el.appendChild(opt);
                     }
                 });
@@ -1393,7 +1393,7 @@
         /* ========================================== */
         /* --- Utils: Tab Switching ---               */
         /* ========================================== */
-        // � 測試功能 1：跨頁籤狀態旗標
+        // 🌟 測試功能 1：跨頁籤狀態旗標
         let isTestKeepPlaying = false;
 
         function triggerCanvasResize() {
@@ -1424,7 +1424,7 @@
 
             triggerCanvasResize();
 
-            // � 判斷是否需要關閉「音頻檢測」的聲音
+            // 🌟 判斷是否需要關閉「音頻檢測」的聲音
             if (tabId !== 'audio-test' && typeof isTestPlaying !== 'undefined' && isTestPlaying) {
                 if (!isTestKeepPlaying) {
                     AppLogger.verbose("UI", "Stopping audio test due to tab switch");
@@ -1473,7 +1473,7 @@
         }
 
         /* ========================================== */
-        /* --- � 磚牆濾波器輔助函式 (Brickwall) ---      */
+        /* --- 🌟 磚牆濾波器輔助函式 (Brickwall) ---      */
         /* ========================================== */
         function createSteepFilter(ctx, type, freq, cascades) {
             let nodes = [];
@@ -1594,7 +1594,7 @@
                         target: [tStart, tEnd]
                     });
 
-                    // � 升級：使用 4 連串級的陡峭濾波器 (-48dB/octave) 徹底消除漏音
+                    // 🌟 升級：使用 4 連串級的陡峭濾波器 (-48dB/octave) 徹底消除漏音
                     const bypassHpCascade = createSteepFilter(context, 'highpass', fEnd, 4);
                     const bypassLpCascade = createSteepFilter(context, 'lowpass', fStart, 4);
                     const hpBandCascade = createSteepFilter(context, 'highpass', fStart, 4);
@@ -1641,7 +1641,7 @@
                         pitchNodes.push(scaler);
                         
                     } else if (freqType === 'scale_range') {
-                        // � 雙引擎自動串接：算出倍率 (a) 與平移補償 (b)
+                        // 🌟 雙引擎自動串接：算出倍率 (a) 與平移補償 (b)
                         const ratio = Math.max(0.1, (tEnd - tStart) / (fEnd - fStart));
                         const shift = tStart - (fStart * ratio);
                         
@@ -2656,7 +2656,7 @@
         let ana_mediaStream;
         const ana_audioElement = document.getElementById('anaAudioPlayer');
         let ana_fileSourceNode = null;
-        let ana_testSource = null; // � 測試功能 2：支援 Buffer 與 Oscillator
+        let ana_testSource = null; // 🌟 測試功能 2：支援 Buffer 與 Oscillator
         let ana_isPlaying = false;
         let ana_isTestingTone = false;
         let ana_isMuted = false;
@@ -2952,7 +2952,7 @@
         document.getElementById('btnAnaToggleOutput').addEventListener('click', () => {
             ana_isMuted = !ana_isMuted;
             const btn = document.getElementById('btnAnaToggleOutput');
-            btn.innerHTML = ana_isMuted ? '�播放輸出: 關' : '�播放輸出: 開';
+            btn.innerHTML = ana_isMuted ? '🔊播放輸出: 關' : '🔊播放輸出: 開';
             btn.className = ana_isMuted ? 'btn btn-secondary' : 'btn btn-success';
             if (ana_muteNode) {
                 ana_muteNode.gain.value = ana_isMuted ? 0 : 1;
@@ -3058,10 +3058,10 @@
             document.getElementById('btnAnaToggleRecord').innerHTML = '▶<br>開始收音';
             document.getElementById('btnAnaToggleRecord').className = 'btn btn-primary btn-square';
             
-            document.getElementById('btnAnaImportFile').innerHTML = '�<br>匯入音檔';
+            document.getElementById('btnAnaImportFile').innerHTML = '📂<br>匯入音檔';
             document.getElementById('btnAnaImportFile').className = 'btn btn-info btn-square';
             
-            document.getElementById('btnAnaTestTone').innerHTML = '�<br>內建測試';
+            document.getElementById('btnAnaTestTone').innerHTML = '🎵<br>內建測試';
             document.getElementById('btnAnaTestTone').className = 'btn btn-warning btn-square';
             document.getElementById('selAnaTestType').disabled = false;
             
@@ -3347,7 +3347,7 @@
         const testWaveType = document.getElementById('testWaveType');
         const testPlayBtn = document.getElementById('testPlayBtn');
 
-        // � 測試功能 1：跨頁籤狀態切換事件
+        // 🌟 測試功能 1：跨頁籤狀態切換事件
         document.getElementById('btnTestKeepPlaying').addEventListener('click', () => {
             isTestKeepPlaying = !isTestKeepPlaying;
             const btn = document.getElementById('btnTestKeepPlaying');
