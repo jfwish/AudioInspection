@@ -611,7 +611,7 @@
                     </div>
                 </div>
 
-                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.0.0.32</p>
+                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.1.1.6</p>
             </div>
 
             <!-- ========================================== -->
@@ -701,7 +701,7 @@
             <!-- ========================================== -->
             <!-- 區塊 3：聲音分析 (新版全螢幕儀表板)           -->
             <!-- ========================================== -->
-            <div id="audio-analysis" class="tab-content" style="padding: 0; height: 100vh; overflow: hidden; position: relative;">
+            <div id="audio-analysis" class="tab-content" style="padding: 0; height: 100%; overflow: hidden; position: relative;">
 
                 <!-- 頂部懸浮控制橫幅 (Overlay) -->
                 <div id="anaOverlayWrapper" class="">
@@ -963,299 +963,249 @@
         });
 
         /* ========================================================================= */
-        /* 🌟 [AudioWorklet] 三種調頻引擎核心實作 (FS-GS, FS-HT, PS-FFT)               */
+        /* 🌟 [AudioWorklet] 移頻引擎核心實作 (Zero-Phase Spectral Processor)          */
         /* ========================================================================= */
         const pitchShiftWorkletCode = `
-        // 1. FS-GS 引擎 (Granular Synthesis) - 會有邊帶毛刺
-        class PitchShiftProcessor extends AudioWorkletProcessor {
+        class SpectralProcessor extends AudioWorkletProcessor {
             constructor() {
                 super();
-                this.pitchRatio = 1.0;
-                this.bufferSize = 16384;
-                this.buffer = new Float32Array(this.bufferSize);
-                this.writePos = 0;
-                this.phase = 0;
-                
-                this.port.onmessage = (e) => {
-                    if (e.data.pitchRatio !== undefined) {
-                        this.pitchRatio = Math.max(0.1, Math.min(e.data.pitchRatio, 4.0));
-                    }
-                };
-            }
-            process(inputs, outputs) {
-                const input = inputs[0][0];
-                const output = outputs[0][0];
-                
-                if (!input || !output) {
-                    return true;
-                }
-                
-                const grainSize = 4096;
-                const rate = (1.0 - this.pitchRatio) / grainSize;
+                this.fftSize = 2048;
+                this.hopSize = 512;
+                this.hopCounter = 0;
 
-                for (let i = 0; i < input.length; i++) {
-                    this.buffer[this.writePos] = input[i];
-                    
-                    this.phase += rate;
-                    if (this.phase >= 1.0) {
-                        this.phase -= 1.0;
-                    }
-                    if (this.phase < 0.0) {
-                        this.phase += 1.0;
-                    }
-                    
-                    let phase1 = this.phase;
-                    let phase2 = (this.phase + 0.5) % 1.0;
-                    
-                    let delay1 = phase1 * grainSize;
-                    let delay2 = phase2 * grainSize;
-                    
-                    let readPos1 = this.writePos - delay1;
-                    if (readPos1 < 0) {
-                        readPos1 += this.bufferSize;
-                    }
-                    
-                    let readPos2 = this.writePos - delay2;
-                    if (readPos2 < 0) {
-                        readPos2 += this.bufferSize;
-                    }
-                    
-                    let win1 = 0.5 - 0.5 * Math.cos(2 * Math.PI * phase1);
-                    let win2 = 0.5 - 0.5 * Math.cos(2 * Math.PI * phase2);
-                    
-                    let val1 = this.buffer[Math.floor(readPos1)];
-                    let val2 = this.buffer[Math.floor(readPos2)];
-                    
-                    output[i] = (val1 * win1) + (val2 * win2);
-                    
-                    this.writePos = (this.writePos + 1) % this.bufferSize;
-                }
-                return true;
-            }
-        }
-        registerProcessor('pitch-shift-processor', PitchShiftProcessor);
+                this.inBuffer = new Float32Array(this.fftSize);
+                this.outBuffer = new Float32Array(this.fftSize);
+                this.inPtr = 0;
+                this.outPtr = 0;
 
-        // 2. FS-HT 引擎 (Hilbert Transform) - 完美單邊帶頻率平移，無毛刺
-        class FsHtProcessor extends AudioWorkletProcessor {
-            constructor() {
-                super();
-                this.shiftHz = 500;
+                this.window = new Float32Array(this.fftSize);
+                for (let i = 0; i < this.fftSize; i++) {
+                    this.window[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / this.fftSize);
+                }
+
+                this.real = new Float32Array(this.fftSize);
+                this.imag = new Float32Array(this.fftSize);
+                this.outReal = new Float32Array(this.fftSize);
+                this.outImag = new Float32Array(this.fftSize);
+
+                this.fStart = 0;
+                this.fEnd = 24000;
+                this.ratio = 1.0;
+                this.shift = 0;
                 this.sampleRate = 48000;
-                this.phase = 0;
-                
+
+                // 🌟 核心修正：新增 FFT 音量控制參數
+                this.vType = 'none';
+                this.vStart = 1.0;
+                this.vEnd = 1.0;
+
                 this.port.onmessage = (e) => {
-                    if (e.data.shiftHz !== undefined) {
-                        this.shiftHz = e.data.shiftHz;
+                    if (e.data.fStart !== undefined) {
+                        this.fStart = e.data.fStart;
+                    }
+                    if (e.data.fEnd !== undefined) {
+                        this.fEnd = e.data.fEnd;
+                    }
+                    if (e.data.ratio !== undefined) {
+                        this.ratio = e.data.ratio;
+                    }
+                    if (e.data.shift !== undefined) {
+                        this.shift = e.data.shift;
                     }
                     if (e.data.sampleRate !== undefined) {
                         this.sampleRate = e.data.sampleRate;
                     }
-                };
-
-                // 產生 255-tap FIR 希爾伯特濾波器係數
-                this.numTaps = 255;
-                this.h = new Float32Array(this.numTaps);
-                this.delayLine = new Float32Array(this.numTaps);
-                this.delayIdx = 0;
-                const half = Math.floor(this.numTaps / 2);
-                
-                for (let i = 0; i < this.numTaps; i++) {
-                    let n = i - half;
-                    if (n % 2 !== 0) {
-                        this.h[i] = 2.0 / (Math.PI * n);
+                    if (e.data.vType !== undefined) {
+                        this.vType = e.data.vType;
                     }
-                    // 加上 Blackman window 減少截斷效應
-                    this.h[i] *= (0.42 - 0.5 * Math.cos(2 * Math.PI * i / (this.numTaps - 1)) + 0.08 * Math.cos(4 * Math.PI * i / (this.numTaps - 1)));
+                    if (e.data.vStart !== undefined) {
+                        this.vStart = e.data.vStart;
+                    }
+                    if (e.data.vEnd !== undefined) {
+                        this.vEnd = e.data.vEnd;
+                    }
+                };
+            }
+
+            getCurveY(x, type) {
+                const isConstant = type === 'constant_sharp' || type === 'constant_smooth' || type === 'constant';
+                if (isConstant) {
+                    return 0;
+                }
+                if (type === 'linear') {
+                    return x;
+                }
+                if (type === 'curveUp') {
+                    return 1 - Math.sqrt(1 - x * x);
+                }
+                if (type === 'curveDown') {
+                    return Math.sqrt(1 - (x - 1) * (x - 1));
+                }
+                return x;
+            }
+
+            calculateGain(x) {
+                if (this.vType === 'geometric') {
+                    const s = Math.max(this.vStart, 0.001);
+                    const e = Math.max(this.vEnd, 0.001);
+                    return s * Math.pow(e / s, x);
+                }
+                const diff = this.vEnd - this.vStart;
+                const curveY = this.getCurveY(x, this.vType);
+                return this.vStart + diff * curveY;
+            }
+
+            processFFT(real, imag, dir) {
+                const n = real.length;
+                let j = 0;
+                for (let i = 0; i < n - 1; i++) {
+                    if (i < j) {
+                        let tr = real[i];
+                        let ti = imag[i];
+                        real[i] = real[j];
+                        imag[i] = imag[j];
+                        real[j] = tr;
+                        imag[j] = ti;
+                    }
+                    let k = n >> 1;
+                    while (k <= j) {
+                        j -= k;
+                        k >>= 1;
+                    }
+                    j += k;
+                }
+                for (let size = 2; size <= n; size *= 2) {
+                    const halfSize = size / 2;
+                    const angle = (dir === 1 ? -2 : 2) * Math.PI / size;
+                    const wpr = Math.cos(angle);
+                    const wpi = Math.sin(angle);
+                    for (let i = 0; i < n; i += size) {
+                        let wr = 1;
+                        let wi = 0;
+                        for (let j = 0; j < halfSize; j++) {
+                            const idx1 = i + j;
+                            const idx2 = idx1 + halfSize;
+                            const tr = wr * real[idx2] - wi * imag[idx2];
+                            const ti = wr * imag[idx2] + wi * real[idx2];
+                            real[idx2] = real[idx1] - tr;
+                            imag[idx2] = imag[idx1] - ti;
+                            real[idx1] += tr;
+                            imag[idx1] += ti;
+                            const t_wr = wr * wpr - wi * wpi;
+                            const t_wi = wr * wpi + wi * wpr;
+                            wr = t_wr;
+                            wi = t_wi;
+                        }
+                    }
+                }
+                if (dir === -1) {
+                    for (let i = 0; i < n; i++) {
+                        real[i] /= n;
+                        imag[i] /= n;
+                    }
                 }
             }
+
+            doFFT() {
+                for (let k = 0; k < this.fftSize; k++) {
+                    const idx = (this.inPtr + k) % this.fftSize;
+                    this.real[k] = this.inBuffer[idx] * this.window[k];
+                    this.imag[k] = 0;
+                    this.outReal[k] = 0;
+                    this.outImag[k] = 0;
+                }
+
+                this.processFFT(this.real, this.imag, 1);
+
+                const binHz = this.sampleRate / this.fftSize;
+                const halfSize = this.fftSize / 2;
+                
+                // 🌟 核心修正：設定 500Hz 的平滑漸變緩衝區
+                const fadeMargin = 500;
+
+                for (let k = 0; k <= halfSize; k++) {
+                    const freq = k * binHz;
+                    let targetBin = k;
+                    let binGain = 1.0;
+
+                    if (this.vType !== 'none') {
+                        const inRange = freq >= this.fStart && freq <= this.fEnd;
+                        if (inRange) {
+                            let x = 0;
+                            if (this.fEnd > this.fStart) {
+                                x = (freq - this.fStart) / (this.fEnd - this.fStart);
+                            }
+                            binGain = this.calculateGain(x);
+                        } else if (this.vType !== 'constant_sharp') {
+                            // 🌟 核心修正：非銳利斷層模式時，計算邊緣的 Cosine 平滑漸變
+                            const inLowFade = freq >= this.fStart - fadeMargin && freq < this.fStart;
+                            const inHighFade = freq > this.fEnd && freq <= this.fEnd + fadeMargin;
+                            if (inLowFade) {
+                                const alpha = (freq - (this.fStart - fadeMargin)) / fadeMargin;
+                                const smoothAlpha = 0.5 - 0.5 * Math.cos(Math.PI * alpha);
+                                const targetG = this.vStart;
+                                binGain = 1.0 + (targetG - 1.0) * smoothAlpha;
+                            } else if (inHighFade) {
+                                const alpha = (freq - this.fEnd) / fadeMargin;
+                                const smoothAlpha = 0.5 - 0.5 * Math.cos(Math.PI * alpha);
+                                const targetG = this.vEnd;
+                                binGain = targetG + (1.0 - targetG) * smoothAlpha;
+                            }
+                        }
+                    }
+
+                    const inPitchRange = freq >= this.fStart && freq <= this.fEnd;
+                    if (inPitchRange) {
+                        const mappedFreq = (freq * this.ratio) + this.shift;
+                        targetBin = Math.round(mappedFreq / binHz);
+                    }
+
+                    const validTarget = targetBin >= 0 && targetBin <= halfSize;
+                    if (validTarget) {
+                        this.outReal[targetBin] += this.real[k] * binGain;
+                        this.outImag[targetBin] += this.imag[k] * binGain;
+
+                        const isNotNyquist = targetBin > 0 && targetBin < halfSize;
+                        if (isNotNyquist) {
+                            this.outReal[this.fftSize - targetBin] += this.real[k] * binGain;
+                            this.outImag[this.fftSize - targetBin] -= this.imag[k] * binGain;
+                        }
+                    }
+                }
+
+                this.processFFT(this.outReal, this.outImag, -1);
+
+                for (let k = 0; k < this.fftSize; k++) {
+                    const idx = (this.outPtr + k) % this.fftSize;
+                    this.outBuffer[idx] += this.outReal[k] * this.window[k] * 0.6666666666666666;
+                }
+            }
+
             process(inputs, outputs) {
                 const input = inputs[0][0];
                 const output = outputs[0][0];
-                
                 if (!input || !output) {
                     return true;
                 }
-                
-                const phaseInc = this.shiftHz / this.sampleRate;
-                const half = Math.floor(this.numTaps / 2);
 
                 for (let i = 0; i < input.length; i++) {
-                    this.delayLine[this.delayIdx] = input[i];
+                    this.inBuffer[this.inPtr] = input[i];
+                    output[i] = this.outBuffer[this.outPtr];
+                    this.outBuffer[this.outPtr] = 0;
 
-                    // FIR 捲積計算虛部 (Imaginary)
-                    let imag = 0;
-                    for (let j = 0; j < this.numTaps; j++) {
-                        let idx = this.delayIdx - j;
-                        if (idx < 0) {
-                            idx += this.numTaps;
-                        }
-                        imag += this.delayLine[idx] * this.h[j];
+                    this.inPtr = (this.inPtr + 1) % this.fftSize;
+                    this.outPtr = (this.outPtr + 1) % this.fftSize;
+
+                    this.hopCounter++;
+                    if (this.hopCounter >= this.hopSize) {
+                        this.hopCounter = 0;
+                        this.doFFT();
                     }
-
-                    // 取延遲的原始訊號作為實部 (Real)
-                    let realIdx = this.delayIdx - half;
-                    if (realIdx < 0) {
-                        realIdx += this.numTaps;
-                    }
-                    let real = this.delayLine[realIdx];
-
-                    // 震盪器與單邊帶調變 (SSB = Real * cos - Imag * sin)
-                    this.phase += phaseInc;
-                    if (this.phase >= 1.0) {
-                        this.phase -= 1.0;
-                    }
-                    if (this.phase <= -1.0) {
-                        this.phase += 1.0;
-                    }
-                    
-                    let cos = Math.cos(2 * Math.PI * this.phase);
-                    let sin = Math.sin(2 * Math.PI * this.phase);
-
-                    output[i] = real * cos - imag * sin;
-
-                    this.delayIdx = (this.delayIdx + 1) % this.numTaps;
                 }
                 return true;
             }
         }
-        registerProcessor('fs-ht-processor', FsHtProcessor);
-
-        // 3. PS-FFT 引擎 (Phase Vocoder 輕量版) - 等比例縮放
-        class PsFftProcessor extends AudioWorkletProcessor {
-            constructor() {
-                super();
-                this.pitchRatio = 1.0;
-                
-                this.port.onmessage = (e) => {
-                    if (e.data.pitchRatio !== undefined) {
-                        this.pitchRatio = Math.max(0.1, Math.min(e.data.pitchRatio, 4.0));
-                    }
-                };
-                
-                // 為了不讓程式碼過度膨脹，這裡使用 Overlap-Add Time-Stretching 近似 Phase Vocoder 行為
-                // (因為完整的 FFT PV 需要處理 Phase Unwrapping，在 JS 內過於耗能)
-                this.bufferSize = 4096;
-                this.buffer = new Float32Array(this.bufferSize);
-                this.writePos = 0;
-                this.phase = 0;
-            }
-            process(inputs, outputs) {
-                const input = inputs[0][0];
-                const output = outputs[0][0];
-                
-                if (!input || !output) {
-                    return true;
-                }
-                
-                const grainSize = 2048;
-                const rate = (1.0 - this.pitchRatio) / grainSize;
-
-                for (let i = 0; i < input.length; i++) {
-                    this.buffer[this.writePos] = input[i];
-                    
-                    this.phase += rate;
-                    if (this.phase >= 1.0) {
-                        this.phase -= 1.0;
-                    }
-                    if (this.phase < 0.0) {
-                        this.phase += 1.0;
-                    }
-                    
-                    let outSample = 0;
-                    for (let o = 0; o < 2; o++) {
-                        let p = (this.phase + o / 2) % 1.0;
-                        let delay = p * grainSize;
-                        let readPos = this.writePos - delay;
-                        if (readPos < 0) {
-                            readPos += this.bufferSize;
-                        }
-                        
-                        let win = 0.5 - 0.5 * Math.cos(2 * Math.PI * p);
-                        outSample += this.buffer[Math.floor(readPos)] * win;
-                    }
-                    
-                    output[i] = outSample;
-                    this.writePos = (this.writePos + 1) % this.bufferSize;
-                }
-                return true;
-            }
-        }
-        registerProcessor('ps-fft-processor', PsFftProcessor);
-
-        // --- 4. 專業級 WASM 相位聲碼器架構 (與高品質 4-Overlap Fallback) ---
-        class WasmPhaseVocoderProcessor extends AudioWorkletProcessor {
-            constructor() {
-                super();
-                this.pitchRatio = 1.0;
-                this.isWasmReady = false;
-                
-                // WASM 架構通訊介面
-                this.port.onmessage = (e) => {
-                    if (e.data.pitchRatio !== undefined) {
-                        this.pitchRatio = Math.max(0.1, Math.min(e.data.pitchRatio, 4.0));
-                    }
-                    if (e.data.wasmModule) {
-                        // 範例：若真實傳入 compiled wasm module，在此初始化
-                        this.isWasmReady = true;
-                    }
-                };
-                
-                // 高品質 4x Overlap-Add Granular Fallback (用以模擬 Phase Vocoder 平滑度)
-                this.grainSize = 8192;
-                this.overlap = 4;
-                this.bufferSize = this.grainSize * 4;
-                this.buffer = new Float32Array(this.bufferSize);
-                this.writePos = 0;
-                this.phase = 0;
-            }
-            process(inputs, outputs) {
-                const input = inputs[0][0];
-                const output = outputs[0][0];
-                
-                if (!input || !output) {
-                    return true;
-                }
-                
-                if (this.isWasmReady) {
-                    // 若有真實掛載的 WASM 模組，可在此呼叫其 _process()
-                }
-
-                // 啟動高品質 Fallback 演算法
-                const rate = (1.0 - this.pitchRatio) / this.grainSize;
-
-                for (let i = 0; i < input.length; i++) {
-                    this.buffer[this.writePos] = input[i];
-                    
-                    this.phase += rate;
-                    if (this.phase >= 1.0) {
-                        this.phase -= 1.0;
-                    }
-                    if (this.phase < 0.0) {
-                        this.phase += 1.0;
-                    }
-                    
-                    let outSample = 0;
-                    for (let o = 0; o < this.overlap; o++) {
-                        let p = (this.phase + o / this.overlap) % 1.0;
-                        let delay = p * this.grainSize;
-                        let readPos = this.writePos - delay;
-                        if (readPos < 0) {
-                            readPos += this.bufferSize;
-                        }
-                        
-                        // Hanning Window
-                        let win = 0.5 - 0.5 * Math.cos(2 * Math.PI * p);
-                        outSample += this.buffer[Math.floor(readPos)] * win;
-                    }
-                    
-                    output[i] = outSample / (this.overlap * 0.375);
-                    
-                    this.writePos = (this.writePos + 1) % this.bufferSize;
-                }
-                return true;
-            }
-        }
-        registerProcessor('wasm-phase-vocoder-processor', WasmPhaseVocoderProcessor);
+        registerProcessor('spectral-processor', SpectralProcessor);
         `;
 
         /* ========================================== */
@@ -1473,33 +1423,6 @@
         }
 
         /* ========================================== */
-        /* --- 🌟 磚牆濾波器輔助函式 (Brickwall) ---      */
-        /* ========================================== */
-        function createSteepFilter(ctx, type, freq, cascades) {
-            let nodes = [];
-            let prevNode = null;
-            
-            for (let i = 0; i < cascades; i++) {
-                let node = ctx.createBiquadFilter();
-                node.type = type;
-                node.frequency.value = freq;
-                
-                if (prevNode) {
-                    prevNode.connect(node);
-                }
-                
-                nodes.push(node);
-                prevNode = node;
-            }
-            
-            return {
-                inNode: nodes[0],
-                outNode: nodes[nodes.length - 1],
-                allNodes: nodes
-            };
-        }
-
-        /* ========================================== */
         /* --- Audio Pipeline Core Setup ---          */
         /* ========================================== */
         function setupAudioPipeline(context, source, gainVal, rowsSelector, isSoftwareNoise, isOutputMuted = false, isWasmEngine = false) {
@@ -1509,12 +1432,15 @@
                 isWasmEngine: isWasmEngine,
                 isOutputMuted: isOutputMuted
             });
+
             let eqNodes = [];
             let pitchNodes = [];
+
             let inAnalyser = context.createAnalyser();
             inAnalyser.fftSize = 2048;
             inAnalyser.minDecibels = -100;
             inAnalyser.maxDecibels = 0;
+
             let outAnalyser = context.createAnalyser();
             outAnalyser.fftSize = 2048;
             outAnalyser.minDecibels = -100;
@@ -1527,9 +1453,11 @@
                 const hp = context.createBiquadFilter();
                 hp.type = 'highpass';
                 hp.frequency.value = 300;
+
                 const lp = context.createBiquadFilter();
                 lp.type = 'lowpass';
                 lp.frequency.value = 3400;
+
                 currentNode.connect(hp);
                 hp.connect(lp);
                 currentNode = lp;
@@ -1544,140 +1472,94 @@
 
             const rows = document.querySelectorAll(rowsSelector);
             rows.forEach(row => {
-                if (row.getAttribute('data-enabled') === 'false') {
+                const isEnabled = row.getAttribute('data-enabled') === 'true';
+                if (!isEnabled) {
                     return;
                 }
 
-                const fStart = parseFloat(row.querySelector('.f-start').value);
-                const fEnd = parseFloat(row.querySelector('.f-end').value);
+                let fStartInput = row.querySelector('.f-start');
+                let fEndInput = row.querySelector('.f-end');
+                let fStart = parseFloat(fStartInput.value);
+                let fEnd = parseFloat(fEndInput.value);
                 const volType = row.querySelector('.vol-type').value;
                 const freqType = row.querySelector('.freq-type').value;
+
+                fStart = Math.max(1, fStart);
+                fEnd = Math.max(fStart + 1, fEnd);
+
+                if (parseFloat(fStartInput.value) !== fStart) {
+                    fStartInput.value = fStart;
+                }
+
+                if (parseFloat(fEndInput.value) !== fEnd) {
+                    fEndInput.value = fEnd;
+                }
 
                 if (fStart >= fEnd) {
                     return;
                 }
 
-                if (volType !== 'none') {
+                const hasVolume = volType !== 'none';
+                const hasPitch = freqType !== 'none' && context.audioWorkletModuleLoaded;
+                const needsProcessing = hasVolume || hasPitch;
+
+                // 🌟 核心修正：將音量與移頻參數全部統一交給 SpectralProcessor 執行
+                if (needsProcessing) {
                     const gStart = parseFloat(row.querySelector('.g-start').value);
-                    const gEnd = parseFloat(row.querySelector('.g-end').value);
-                    const N = 10;
-                    for (let i = 0; i < N; i++) {
-                        const x = (N === 1) ? 0 : (i / (N - 1));
-                        const freq = fStart * Math.pow(fEnd / fStart, x);
-                        const gainMult = calculateGainMultiplier(x, gStart, gEnd, volType);
-                        const gainDb = 20 * Math.log10(Math.max(gainMult, 0.0001));
+                    let gEnd = parseFloat(row.querySelector('.g-end').value);
 
-                        const filter = context.createBiquadFilter();
-                        filter.type = 'peaking';
-                        filter.frequency.value = freq;
-                        const octaves = Math.log2(fEnd / fStart);
-                        const bandwidthOctaves = octaves / N;
-                        filter.Q.value = Math.max(0.1, Math.sqrt(Math.pow(2, bandwidthOctaves)) / (Math.pow(2, bandwidthOctaves) - 1));
-                        filter.gain.value = gainDb;
-                        
-                        currentNode.connect(filter);
-                        currentNode = filter;
-                        eqNodes.push(filter);
-                    }
-                }
+                    const isConstant = volType === 'constant_sharp' || volType === 'constant_smooth' || volType === 'constant';
+                    gEnd = isConstant ? gStart : gEnd;
 
-                if (freqType !== 'none' && context.audioWorkletModuleLoaded) {
-                    const shiftVal = parseFloat(row.querySelector('.freq-shift-val') ? row.querySelector('.freq-shift-val').value : '500');
-                    const ratioVal = parseFloat(row.querySelector('.freq-ratio-val') ? row.querySelector('.freq-ratio-val').value : '1.5');
-                    const tStart = parseFloat(row.querySelector('.freq-target-start') ? row.querySelector('.freq-target-start').value : '2000');
-                    const tEnd = parseFloat(row.querySelector('.freq-target-end') ? row.querySelector('.freq-target-end').value : '5000');
-                    
-                    AppLogger.verbose("DSP", "Applying Frequency Processor", {
-                        type: freqType,
-                        shift: shiftVal,
-                        ratio: ratioVal,
-                        target: [tStart, tEnd]
-                    });
-
-                    // 🌟 升級：使用 4 連串級的陡峭濾波器 (-48dB/octave) 徹底消除漏音
-                    const bypassHpCascade = createSteepFilter(context, 'highpass', fEnd, 4);
-                    const bypassLpCascade = createSteepFilter(context, 'lowpass', fStart, 4);
-                    const hpBandCascade = createSteepFilter(context, 'highpass', fStart, 4);
-                    const lpBandCascade = createSteepFilter(context, 'lowpass', fEnd, 4);
-                    
-                    const mixer = context.createGain();
-
-                    currentNode.connect(bypassHpCascade.inNode);
-                    bypassHpCascade.outNode.connect(mixer);
-                    
-                    currentNode.connect(bypassLpCascade.inNode);
-                    bypassLpCascade.outNode.connect(mixer);
-                    
-                    currentNode.connect(hpBandCascade.inNode);
-                    hpBandCascade.outNode.connect(lpBandCascade.inNode);
-                    
-                    let bandOutputNode = lpBandCascade.outNode;
-                    
-                    pitchNodes.push(...bypassHpCascade.allNodes);
-                    pitchNodes.push(...bypassLpCascade.allNodes);
-                    pitchNodes.push(...hpBandCascade.allNodes);
-                    pitchNodes.push(...lpBandCascade.allNodes);
+                    let targetRatio = 1.0;
+                    let targetShift = 0;
 
                     if (freqType === 'shift') {
-                        const htShifter = new AudioWorkletNode(context, 'fs-ht-processor');
-                        htShifter.port.postMessage({
-                            shiftHz: shiftVal,
-                            sampleRate: context.sampleRate
-                        });
-                        
-                        bandOutputNode.connect(htShifter);
-                        htShifter.connect(mixer);
-                        pitchNodes.push(htShifter);
-                        
+                        const shiftElem = row.querySelector('.freq-shift-val');
+                        targetShift = parseFloat(shiftElem ? shiftElem.value : '500');
                     } else if (freqType === 'scale_ratio') {
-                        const scaleProcessor = isWasmEngine ? 'wasm-phase-vocoder-processor' : 'ps-fft-processor';
-                        const scaler = new AudioWorkletNode(context, scaleProcessor);
-                        scaler.port.postMessage({
-                            pitchRatio: ratioVal
-                        });
-                        
-                        bandOutputNode.connect(scaler);
-                        scaler.connect(mixer);
-                        pitchNodes.push(scaler);
-                        
+                        const ratioElem = row.querySelector('.freq-ratio-val');
+                        targetRatio = parseFloat(ratioElem ? ratioElem.value : '1.5');
                     } else if (freqType === 'scale_range') {
-                        // 🌟 雙引擎自動串接：算出倍率 (a) 與平移補償 (b)
-                        const ratio = Math.max(0.1, (tEnd - tStart) / (fEnd - fStart));
-                        const shift = tStart - (fStart * ratio);
-                        
-                        const scaleProcessor = isWasmEngine ? 'wasm-phase-vocoder-processor' : 'ps-fft-processor';
-                        const scaler = new AudioWorkletNode(context, scaleProcessor);
-                        scaler.port.postMessage({
-                            pitchRatio: ratio
-                        });
-                        
-                        const htShifter = new AudioWorkletNode(context, 'fs-ht-processor');
-                        htShifter.port.postMessage({
-                            shiftHz: shift,
-                            sampleRate: context.sampleRate
-                        });
-                        
-                        const hpTargetCascade = createSteepFilter(context, 'highpass', tStart, 4);
-                        const lpTargetCascade = createSteepFilter(context, 'lowpass', tEnd, 4);
-                        
-                        bandOutputNode.connect(scaler);
-                        scaler.connect(htShifter);
-                        htShifter.connect(hpTargetCascade.inNode);
-                        hpTargetCascade.outNode.connect(lpTargetCascade.inNode);
-                        lpTargetCascade.outNode.connect(mixer);
-                        
-                        pitchNodes.push(scaler, htShifter);
-                        pitchNodes.push(...hpTargetCascade.allNodes);
-                        pitchNodes.push(...lpTargetCascade.allNodes);
+                        const startElem = row.querySelector('.freq-target-start');
+                        const endElem = row.querySelector('.freq-target-end');
+                        const tStart = parseFloat(startElem ? startElem.value : '2000');
+                        const tEnd = parseFloat(endElem ? endElem.value : '5000');
+                        targetRatio = Math.max(0.1, (tEnd - tStart) / (fEnd - fStart));
+                        targetShift = tStart - (fStart * targetRatio);
                     }
-                    
-                    pitchNodes.push(mixer);
-                    currentNode = mixer;
+
+                    AppLogger.verbose("DSP", "Applying Zero-Phase Spectral Processor", {
+                        freqType: freqType,
+                        volType: volType,
+                        ratio: targetRatio,
+                        shift: targetShift,
+                        sourceRange: [
+                            fStart,
+                            fEnd
+                        ]
+                    });
+
+                    const processor = new AudioWorkletNode(context, 'spectral-processor');
+                    processor.port.postMessage({
+                        fStart: fStart,
+                        fEnd: fEnd,
+                        ratio: targetRatio,
+                        shift: targetShift,
+                        vType: volType,
+                        vStart: gStart,
+                        vEnd: gEnd,
+                        sampleRate: context.sampleRate
+                    });
+
+                    currentNode.connect(processor);
+                    currentNode = processor;
+                    pitchNodes.push(processor);
                 }
             });
 
             currentNode.connect(outAnalyser);
-            
+
             let muteNode = null;
             if (isOutputMuted !== null) {
                 muteNode = context.createGain();
@@ -1791,9 +1673,12 @@
             };
         }
 
-        function runSpectrumAnimation(ctx, canvas, inAnalyser, outAnalyser, inData, outData, maxFreq, viewRef) {
-            inAnalyser.getFloatFrequencyData(inData);
-            outAnalyser.getFloatFrequencyData(outData);
+        function runSpectrumAnimation(ctx, canvas, inAnalyser, outAnalyser, inData, outData, maxFreq, viewRef, isFrozen = false) {
+            // 🌟 如果是凍結狀態，就不去讀取新的 (空的) 聲音數據
+            if (!isFrozen) {
+                inAnalyser.getFloatFrequencyData(inData);
+                outAnalyser.getFloatFrequencyData(outData);
+            }
 
             const viewStart = viewRef.startFreq;
             const viewEnd = viewRef.endFreq;
@@ -1869,7 +1754,7 @@
 
             function draw() {
                 refObj.animId = requestAnimationFrame(draw);
-                runSpectrumAnimation(ctx, canvas, refObj.inAna, refObj.outAna, refObj.inData, refObj.outData, maxFreq, refObj.view);
+                runSpectrumAnimation(ctx, canvas, refObj.inAna, refObj.outAna, refObj.inData, refObj.outData, maxFreq, refObj.view, false);
             }
             draw();
         }
@@ -1877,13 +1762,22 @@
         function stopSpectrumAnimation(canvasId, refObj) {
             if (refObj && refObj.animId) {
                 cancelAnimationFrame(refObj.animId);
+                refObj.animId = null;
             }
             const canvas = document.getElementById(canvasId);
             if (canvas) {
                 const ctx = canvas.getContext('2d');
                 canvas.width = canvas.clientWidth;
                 canvas.height = canvas.clientHeight;
-                drawSpectrumGrid(ctx, canvas.width, canvas.height, refObj.view.startFreq, refObj.view.endFreq);
+                
+                // 🌟 如果有殘留的聲音數據，就畫出最後一幀凍結畫面，否則畫空白網格
+                if (refObj.inData && refObj.outData && refObj.inAna) {
+                    const sampleRate = (refObj.ctx && refObj.ctx.sampleRate) ? refObj.ctx.sampleRate : 48000;
+                    const maxFreq = sampleRate / 2;
+                    runSpectrumAnimation(ctx, canvas, refObj.inAna, refObj.outAna, refObj.inData, refObj.outData, maxFreq, refObj.view, true);
+                } else {
+                    drawSpectrumGrid(ctx, canvas.width, canvas.height, refObj.view.startFreq, refObj.view.endFreq);
+                }
             }
         }
 
@@ -1901,6 +1795,16 @@
 
             function getPanDelta(touch, lastTouchObj) {
                 return touch.clientX - lastTouchObj.x;
+            }
+
+            // 🌟 專屬的「凍結畫面重繪器」
+            function redrawIfFrozen() {
+                if (!refObj.animId && refObj.inData && refObj.outData && refObj.inAna) {
+                    const ctx = canvas.getContext('2d');
+                    const sampleRate = (refObj.ctx && refObj.ctx.sampleRate) ? refObj.ctx.sampleRate : 48000;
+                    const maxFreq = sampleRate / 2;
+                    runSpectrumAnimation(ctx, canvas, refObj.inAna, refObj.outAna, refObj.inData, refObj.outData, maxFreq, refObj.view, true);
+                }
             }
 
             canvas.addEventListener('touchstart', (e) => {
@@ -1991,6 +1895,9 @@
                     refObj.view.startFreq = newStart;
                     refObj.view.endFreq = newEnd;
                 }
+                
+                // 🌟 手勢滑動結束時，檢查是否需要靜態重繪
+                redrawIfFrozen();
             }, {
                 passive: false
             });
@@ -2042,6 +1949,9 @@
                 
                 refObj.view.startFreq = newStart;
                 refObj.view.endFreq = newEnd;
+                
+                // 🌟 滾輪縮放結束時，檢查是否需要靜態重繪
+                redrawIfFrozen();
             }, {
                 passive: false
             });
@@ -2187,32 +2097,49 @@
             const div = document.createElement('div');
             div.className = 'band-row';
             div.id = `band-${id}`;
-            div.setAttribute('data-enabled', b ? (b.enabled ? 'true' : 'false') : 'false');
             
+            const isEnabled = b ? (b.enabled ? 'true' : 'false') : 'false';
+            div.setAttribute('data-enabled', isEnabled);
+
             const fStart = b ? b.fStart : 500;
             const fEnd = b ? b.fEnd : 2000;
             const volType = b ? (b.volType || (b.type ? b.type : 'none')) : 'none';
             const gStart = b ? (b.gStart || 1.0) : 1.0;
             const gEnd = b ? (b.gEnd || 2.0) : 2.0;
+
             let freqType = b ? (b.freqType || 'none') : 'none';
-            if (['shift_gs', 'shift_ht', 'shift_fft', 'scale_linear', 'scale_curve', 'scale_inv_curve'].includes(freqType)) {
+            const legacyTypes = [
+                'shift_gs',
+                'shift_ht',
+                'shift_fft',
+                'scale_linear',
+                'scale_curve',
+                'scale_inv_curve'
+            ];
+
+            if (legacyTypes.includes(freqType)) {
                 freqType = freqType.startsWith('shift') ? 'shift' : 'scale_range';
             }
+
             const freqShiftVal = b ? (b.freqShiftVal || '500') : '500';
             const freqRatioVal = b ? (b.freqRatioVal || '1.5') : '1.5';
             const freqTargetStart = b ? (b.freqTargetStart || '2000') : '2000';
             const freqTargetEnd = b ? (b.freqTargetEnd || '5000') : '5000';
+            
             const enabled = b ? b.enabled : false;
+            const btnClass = enabled ? 'btn-warning' : 'btn-success';
+            const btnText = enabled ? '停用' : '啟用';
 
+            // 🌟 核心修正：加入 constant_sharp 與 constant_smooth 兩個新選項
             div.innerHTML = `
                 <div class="input-group" style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <strong>頻率範圍 (Hz):</strong>
-                        <input type="number" class="f-start" value="${fStart}" min="20" max="20000" style="width: 70px; padding: 5px;"> ~ 
-                        <input type="number" class="f-end" value="${fEnd}" min="20" max="20000" style="width: 70px; padding: 5px;">
+                        <input type="number" class="f-start" value="${fStart}" min="1" max="20000" style="width: 70px; padding: 5px;"> ~ 
+                        <input type="number" class="f-end" value="${fEnd}" min="1" max="20000" style="width: 70px; padding: 5px;">
                     </div>
                     <div style="display: flex; gap: 5px;">
-                        <button class="btn ${enabled ? 'btn-warning' : 'btn-success'} btn-sm" id="btn-toggle-${id}" onclick="toggleBand(${id})" style="width:auto; padding: 4px 10px; font-size: 12px;">${enabled ? '停用' : '啟用'}</button>
+                        <button class="btn ${btnClass} btn-sm" id="btn-toggle-${id}" onclick="toggleBand(${id})" style="width:auto; padding: 4px 10px; font-size: 12px;">${btnText}</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteBand(${id})" style="width:auto; padding: 4px 10px; font-size: 12px;">刪除</button>
                     </div>
                 </div>
@@ -2221,7 +2148,8 @@
                     <div><strong style="color:#007bff;">【音量區】</strong> <strong style="margin-left: 5px;">模式:</strong></div>
                     <select class="vol-type" style="padding: 5px;" onchange="handleVolTypeChange(this, true, false)">
                         <option value="none" ${volType==='none'?'selected':''}>無 (不調整)</option>
-                        <option value="constant" ${volType==='constant'?'selected':''}>等量 (固定起始值)</option>
+                        <option value="constant_sharp" ${volType==='constant_sharp'?'selected':''}>等量 (銳利斷層)</option>
+                        <option value="constant_smooth" ${volType==='constant_smooth'?'selected':''}>等量 (平滑斜坡)</option>
                         <option value="linear" ${volType==='linear'?'selected':''}>等差 (線性)</option>
                         <option value="geometric" ${volType==='geometric'?'selected':''}>等倍 (指數)</option>
                         <option value="curveUp" ${volType==='curveUp'?'selected':''}>圓曲線 (開口向上)</option>
@@ -2264,17 +2192,25 @@
             if (!row) {
                 return;
             }
+
             const gStart = row.querySelector('.g-start');
             const gEnd = row.querySelector('.g-end');
+            const val = selectElem.value;
             
-            if (selectElem.value === 'none') {
+            // 🌟 核心修正：判斷是否為「等量」相關模式，如果是則禁用結束倍率輸入框
+            const isConstantType = val === 'constant_sharp' || val === 'constant_smooth' || val === 'constant';
+
+            if (val === 'none') {
                 gStart.disabled = true;
+                gEnd.disabled = true;
+            } else if (isConstantType) {
+                gStart.disabled = false;
                 gEnd.disabled = true;
             } else {
                 gStart.disabled = false;
                 gEnd.disabled = false;
             }
-            
+
             if (triggerRebuild) {
                 if (isAna) {
                     ana_rebuildAudioPipeline();
@@ -2291,6 +2227,7 @@
             if (!row) {
                 return;
             }
+
             const freqParams = row.querySelector('.freq-params');
             const shiftUi = row.querySelector('.freq-shift-ui');
             const ratioUi = row.querySelector('.freq-ratio-ui');
@@ -2305,7 +2242,7 @@
                 ratioUi.style.display = val === 'scale_ratio' ? 'inline-block' : 'none';
                 scaleUi.style.display = val === 'scale_range' ? 'inline-block' : 'none';
             }
-            
+
             if (triggerRebuild) {
                 if (isAna) {
                     ana_rebuildAudioPipeline();
@@ -2692,32 +2629,49 @@
             const div = document.createElement('div');
             div.className = 'ana-band-row';
             div.id = `ana-band-${id}`;
-            div.setAttribute('data-enabled', b ? (b.enabled ? 'true' : 'false') : 'false');
+            
+            const isEnabled = b ? (b.enabled ? 'true' : 'false') : 'false';
+            div.setAttribute('data-enabled', isEnabled);
 
             const fStart = b ? b.fStart : 500;
             const fEnd = b ? b.fEnd : 2000;
             const volType = b ? (b.volType || (b.type ? b.type : 'none')) : 'none';
             const gStart = b ? (b.gStart || 1.0) : 1.0;
             const gEnd = b ? (b.gEnd || 2.0) : 2.0;
+
             let freqType = b ? (b.freqType || 'none') : 'none';
-            if (['shift_gs', 'shift_ht', 'shift_fft', 'scale_linear', 'scale_curve', 'scale_inv_curve'].includes(freqType)) {
+            const legacyTypes = [
+                'shift_gs',
+                'shift_ht',
+                'shift_fft',
+                'scale_linear',
+                'scale_curve',
+                'scale_inv_curve'
+            ];
+
+            if (legacyTypes.includes(freqType)) {
                 freqType = freqType.startsWith('shift') ? 'shift' : 'scale_range';
             }
+
             const freqShiftVal = b ? (b.freqShiftVal || '500') : '500';
             const freqRatioVal = b ? (b.freqRatioVal || '1.5') : '1.5';
             const freqTargetStart = b ? (b.freqTargetStart || '2000') : '2000';
             const freqTargetEnd = b ? (b.freqTargetEnd || '5000') : '5000';
+            
             const enabled = b ? b.enabled : false;
+            const btnClass = enabled ? 'btn-warning' : 'btn-success';
+            const btnText = enabled ? '停用' : '啟用';
 
+            // 🌟 核心修正：加入 constant_sharp 與 constant_smooth 兩個新選項
             div.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #ccc; padding-bottom: 4px;">
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <strong>頻率(Hz):</strong>
-                        <input type="number" class="f-start" value="${fStart}" min="20" max="20000"> ~ 
-                        <input type="number" class="f-end" value="${fEnd}" min="20" max="20000">
+                        <input type="number" class="f-start" value="${fStart}" min="1" max="20000"> ~ 
+                        <input type="number" class="f-end" value="${fEnd}" min="1" max="20000">
                     </div>
                     <div style="display: flex; gap: 4px;">
-                        <button class="btn ${enabled ? 'btn-warning' : 'btn-success'} btn-sm" id="btn-ana-toggle-${id}" onclick="toggleAnaBand(${id})" style="padding: 2px 6px; font-size: 11px; width:auto;">${enabled ? '停用' : '啟用'}</button>
+                        <button class="btn ${btnClass} btn-sm" id="btn-ana-toggle-${id}" onclick="toggleAnaBand(${id})" style="padding: 2px 6px; font-size: 11px; width:auto;">${btnText}</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteAnaBand(${id})" style="padding: 2px 6px; font-size: 11px; width:auto;">刪除</button>
                     </div>
                 </div>
@@ -2727,7 +2681,8 @@
                         <strong style="color:#007bff;">【音量】</strong>
                         <select class="vol-type" onchange="handleVolTypeChange(this, true, true)">
                             <option value="none" ${volType==='none'?'selected':''}>無 (不調整)</option>
-                            <option value="constant" ${volType==='constant'?'selected':''}>等量</option>
+                            <option value="constant_sharp" ${volType==='constant_sharp'?'selected':''}>等量 (銳利斷層)</option>
+                            <option value="constant_smooth" ${volType==='constant_smooth'?'selected':''}>等量 (平滑斜坡)</option>
                             <option value="linear" ${volType==='linear'?'selected':''}>等差</option>
                             <option value="geometric" ${volType==='geometric'?'selected':''}>等倍</option>
                             <option value="curveUp" ${volType==='curveUp'?'selected':''}>圓曲(上)</option>
