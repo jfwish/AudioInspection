@@ -615,7 +615,7 @@
                     </div>
                 </div>
 
-                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.1.4.0</p>
+                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.1.4.1</p>
             </div>
 
             <!-- ========================================== -->
@@ -3354,7 +3354,7 @@
             }
         });
 
-        // 🌟 核心新增：實體錄音檔下載引擎
+        // 🌟 核心新增：實體錄音檔下載引擎 (修復 iOS WebM 路由 Bug)
         document.getElementById('btnAnaRecordFile').addEventListener('click', () => {
             if (!ana_isRecordingFile) {
                 if (!ana_mediaStream) {
@@ -3363,12 +3363,15 @@
                 }
                 
                 ana_recordedChunks = [];
-                let options = { mimeType: 'audio/webm;codecs=opus' };
-                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                
+                // 🌟 核心修正：強制優先嘗試 audio/mp4 (iOS Safari 最完美支援 Web Audio API 的格式)
+                let options = {};
+                if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                    options = { mimeType: 'audio/mp4' };
+                } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                    options = { mimeType: 'audio/webm;codecs=opus' };
+                } else if (MediaRecorder.isTypeSupported('audio/webm')) {
                     options = { mimeType: 'audio/webm' };
-                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                        options = { mimeType: 'audio/mp4' };
-                    }
                 }
                 
                 try {
@@ -3385,7 +3388,9 @@
                 };
 
                 ana_mediaRecorder.onstop = () => {
-                    const blob = new Blob(ana_recordedChunks, { type: ana_mediaRecorder.mimeType || 'audio/webm' });
+                    // 若 mimeType 未定義，以 iOS 預設的 audio/mp4 為主
+                    const actualMimeType = ana_mediaRecorder.mimeType || 'audio/mp4'; 
+                    const blob = new Blob(ana_recordedChunks, { type: actualMimeType });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.style.display = 'none';
@@ -3394,9 +3399,10 @@
                     const d = new Date();
                     const timeStr = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}${String(d.getSeconds()).padStart(2,'0')}`;
                     
-                    let ext = '.webm';
-                    if (ana_mediaRecorder.mimeType.includes('mp4')) ext = '.mp4';
-                    else if (ana_mediaRecorder.mimeType.includes('ogg')) ext = '.ogg';
+                    // 動態決定副檔名，優先判定 mp4
+                    let ext = '.mp4';
+                    if (actualMimeType.includes('webm')) ext = '.webm';
+                    else if (actualMimeType.includes('ogg')) ext = '.ogg';
                     
                     a.download = 'AudioApp_Record_' + timeStr + ext;
                     document.body.appendChild(a);
