@@ -615,7 +615,7 @@
                     </div>
                 </div>
 
-                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.1.2.3</p>
+                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.1.3.0</p>
             </div>
 
             <!-- ========================================== -->
@@ -791,6 +791,9 @@
                     <button type="button" id="btnToggleWaveformAna" class="btn btn-sm btn-secondary" onclick="toggleWaveformLineAna(event)" style="width: auto; padding: 2px 8px; font-size: 11px;">📈 顯示波形線</button>
                     <span style="color: #ccc;">■ 原始收音 (Input)</span>
                     <span style="color: #4da3ff;">■ 處理後輸出 (Output)</span>
+                    <!-- 🌟 核心新增：雙軌峰值鎖定按鈕 -->
+                    <button type="button" id="btnPeakA" class="btn btn-sm btn-secondary" onclick="togglePeak(event, 'A')" style="width: auto; padding: 2px 8px; font-size: 11px; color: #5eff5e;">峰值 A (關)</button>
+                    <button type="button" id="btnPeakB" class="btn btn-sm btn-secondary" onclick="togglePeak(event, 'B')" style="width: auto; padding: 2px 8px; font-size: 11px; color: #e066ff;">峰值 B (關)</button>
                 </div>
                 <!-- 加上 touch-action: none 防止原生滾動干擾 -->
                 <canvas id="anaSpectrumCanvas" style="width: 100%; height: 100%; background: #111; display: block; touch-action: none;"></canvas>
@@ -1681,6 +1684,72 @@
         let isShowWaveformLineHome = false;
         let isShowWaveformLineAna = false;
 
+        // 🌟 核心新增：雙軌峰值快照 LIFO 狀態機
+        let peakStack = [];
+        let peakData = {
+            'A': { state: 'Z', maxEnergy: 0, snapshotOut: null, color: 'rgba(94, 255, 94, 1.0)' }, // 螢光綠
+            'B': { state: 'Z', maxEnergy: 0, snapshotOut: null, color: 'rgba(224, 102, 255, 1.0)' } // 螢光紫
+        };
+
+        function togglePeak(event, id) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            const idx = peakStack.indexOf(id);
+            if (idx > -1) {
+                // 已存在於堆疊，代表要關閉 (切換為 Z)
+                peakStack.splice(idx, 1);
+                peakData[id].maxEnergy = 0;
+                peakData[id].snapshotOut = null;
+            } else {
+                // 不在堆疊，代表要開啟 (移入頂端)
+                peakStack.push(id);
+                peakData[id].maxEnergy = 0;
+                peakData[id].snapshotOut = null;
+            }
+
+            // 重置雙軌狀態
+            peakData['A'].state = 'Z';
+            peakData['B'].state = 'Z';
+
+            // 根據 LIFO 堆疊設定 X(錄製) 與 Y(凍結) 狀態
+            if (peakStack.length === 1) {
+                peakData[peakStack[0]].state = 'X';
+            } else if (peakStack.length === 2) {
+                peakData[peakStack[1]].state = 'X'; // 最新開啟的當老大
+                peakData[peakStack[0]].state = 'Y'; // 先開啟的被降級凍結
+            }
+
+            // 更新 UI 按鈕文字與樣式
+            ['A', 'B'].forEach(pid => {
+                const btn = document.getElementById('btnPeak' + pid);
+                if (btn) {
+                    if (peakData[pid].state === 'Z') {
+                        btn.textContent = '峰值 ' + pid + ' (關)';
+                        btn.className = 'btn btn-sm btn-secondary';
+                    } else if (peakData[pid].state === 'X') {
+                        btn.textContent = '峰值 ' + pid + ' (錄製)';
+                        btn.className = 'btn btn-sm btn-warning';
+                    } else if (peakData[pid].state === 'Y') {
+                        btn.textContent = '峰值 ' + pid + ' (凍結)';
+                        btn.className = 'btn btn-sm btn-info';
+                    }
+                }
+            });
+
+            // 觸發凍結狀態下的單幀重繪，實現即時 UI 反應
+            const isAnaFrozen = anaSpecRef && !anaSpecRef.animId && anaSpecRef.inData;
+            if (isAnaFrozen) {
+                const canvas = document.getElementById('anaSpectrumCanvas');
+                const ctx = canvas.getContext('2d');
+                const sampleRate = anaSpecRef.ctx && anaSpecRef.ctx.sampleRate ? anaSpecRef.ctx.sampleRate : 48000;
+                const maxFreq = sampleRate / 2;
+                runSpectrumAnimation(ctx, canvas, anaSpecRef.inAna, anaSpecRef.outAna, anaSpecRef.inData, anaSpecRef.outData, maxFreq, anaSpecRef.view, true);
+            }
+        }
+
         function toggleWaveformLineHome(event) {
             if (event) {
                 event.preventDefault();
@@ -1790,7 +1859,7 @@
                 ctx.fillRect(outX, pad.t + gH - outputHeight, outWidth, outputHeight);
             }
 
-            // 🌟 核心修正：引擎會自動根據當前正在畫的 canvas 實體，判斷要使用哪個分頁的波形開關
+            // 🌟 第一層：即時波形線繪製邏輯
             let shouldDrawWaveform = false;
             if (canvas.id === 'spectrumCanvas') {
                 shouldDrawWaveform = isShowWaveformLineHome;
@@ -1859,6 +1928,68 @@
                     }
                 }
                 ctx.stroke();
+            }
+
+            // 🌟 第二層：雙軌峰值鎖定 (僅限分析頁生效)
+            if (canvas.id === 'anaSpectrumCanvas') {
+                const hasActiveX = peakData['A'].state === 'X' || peakData['B'].state === 'X';
+                
+                // 1. 若有活躍的 X 老大且不在凍結狀態，計算整幀面積能量並覆寫快照
+                if (hasActiveX && !frozenState) {
+                    let currentEnergy = 0;
+                    for (let i = 0; i < bufferLength; i++) {
+                        let outP = (outData[i] - (-100)) / 100;
+                        outP = outP < 0 ? 0 : outP > 1 ? 1 : outP;
+                        currentEnergy += outP;
+                    }
+
+                    ['A', 'B'].forEach(id => {
+                        if (peakData[id].state === 'X') {
+                            if (currentEnergy > peakData[id].maxEnergy) {
+                                peakData[id].maxEnergy = currentEnergy;
+                                peakData[id].snapshotOut = new Float32Array(outData);
+                            }
+                        }
+                    });
+                }
+
+                // 2. 畫出非 Z 狀態的峰值波形線
+                ['A', 'B'].forEach(id => {
+                    if (peakData[id].state !== 'Z' && peakData[id].snapshotOut) {
+                        try {
+                            ctx.lineWidth = 2.0;
+                            ctx.lineJoin = 'round';
+                            ctx.strokeStyle = peakData[id].color;
+                            ctx.beginPath();
+                            let isFirst = true;
+
+                            for (let i = 0; i < bufferLength; i++) {
+                                const binFreq = i * binHz;
+                                if (binFreq + binHz < viewStart || binFreq > viewEnd) {
+                                    continue;
+                                }
+
+                                const centerX = pad.l + gW * ((binFreq - viewStart) / span) + (barWidth / 2);
+                                const clampedX = Math.round(Math.max(pad.l, Math.min(pad.l + gW, centerX)));
+
+                                let outP = (peakData[id].snapshotOut[i] - (-100)) / 100;
+                                outP = outP < 0 ? 0 : outP > 1 ? 1 : outP;
+                                const y = Math.round(pad.t + gH - (outP * gH));
+
+                                if (Number.isFinite(clampedX) && Number.isFinite(y)) {
+                                    if (isFirst) {
+                                        ctx.moveTo(clampedX, y);
+                                        isFirst = false;
+                                    } else {
+                                        ctx.lineTo(clampedX, y);
+                                    }
+                                }
+                            }
+                            ctx.stroke();
+                        } catch (errPeak) {
+                        }
+                    }
+                });
             }
         }
 
