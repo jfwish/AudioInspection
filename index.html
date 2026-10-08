@@ -615,7 +615,7 @@
                     </div>
                 </div>
 
-                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.1.3.0</p>
+                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.1.4.0</p>
             </div>
 
             <!-- ========================================== -->
@@ -734,8 +734,11 @@
                         </div>
                         <div class="ana-divider"></div>
 
-                        <!-- B. 開始收音 (正方形) -->
-                        <button id="btnAnaToggleRecord" class="btn btn-primary btn-square" style="width: 80px; height: 80px; font-size: 14px; align-self: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">▶<br>開始收音</button>
+                        <!-- B. 麥克風收音與實體錄音 -->
+                        <div style="display: flex; gap: 5px; align-items: center; justify-content: center; height: 100%;">
+                            <button id="btnAnaToggleRecord" class="btn btn-primary btn-square" style="width: 70px; height: 80px; font-size: 14px; padding: 2px;">▶<br>收音</button>
+                            <button id="btnAnaRecordFile" class="btn btn-secondary btn-square" style="width: 60px; height: 80px; font-size: 14px; padding: 2px; opacity: 0.5; cursor: not-allowed;" disabled>🔴<br>錄檔</button>
+                        </div>
                         <div class="ana-divider"></div>
 
                         <!-- C. 匯入音檔 (正方形) -->
@@ -2853,6 +2856,11 @@
         let ana_isTestingTone = false;
         let ana_isMuted = false;
 
+        // 🌟 核心新增：實體錄音功能狀態與陣列
+        let ana_mediaRecorder = null;
+        let ana_recordedChunks = [];
+        let ana_isRecordingFile = false;
+
         let ana_inputAnalyser = null;
         let ana_outputAnalyser = null;
         let ana_muteNode = null;
@@ -3241,6 +3249,20 @@
             AppLogger.info("Analysis", "Stopping audio playback/recording");
             stopSpectrumAnimation('anaSpectrumCanvas', anaSpecRef);
             
+            // 🌟 核心新增：還原錄音按鈕狀態，並強制停止錄音存檔
+            const btnRec = document.getElementById('btnAnaRecordFile');
+            if (btnRec) {
+                btnRec.disabled = true;
+                btnRec.style.opacity = '0.5';
+                btnRec.style.cursor = 'not-allowed';
+                btnRec.className = 'btn btn-secondary btn-square';
+                btnRec.innerHTML = '🔴<br>錄檔';
+                if (ana_isRecordingFile && ana_mediaRecorder && ana_mediaRecorder.state !== 'inactive') {
+                    ana_mediaRecorder.stop();
+                }
+                ana_isRecordingFile = false;
+            }
+
             if (ana_mediaStream) {
                 ana_mediaStream.getTracks().forEach(track => track.stop());
                 ana_mediaStream = null;
@@ -3314,12 +3336,96 @@
                     document.getElementById('btnAnaToggleRecord').innerHTML = '■<br>停止收音';
                     document.getElementById('btnAnaToggleRecord').className = 'btn btn-danger btn-square';
                     ana_isPlaying = true;
+                    
+                    // 🌟 核心新增：收音成功後解鎖錄音按鈕
+                    const btnRec = document.getElementById('btnAnaRecordFile');
+                    if (btnRec) {
+                        btnRec.disabled = false;
+                        btnRec.style.opacity = '1';
+                        btnRec.style.cursor = 'pointer';
+                        btnRec.className = 'btn btn-danger btn-square';
+                    }
                 } catch (err) {
                     AppLogger.error("AnaRecord", "Microphone access denied or failed", err);
                     alert("無法存取麥克風！");
                 }
             } else {
                 stopAnaAudio();
+            }
+        });
+
+        // 🌟 核心新增：實體錄音檔下載引擎
+        document.getElementById('btnAnaRecordFile').addEventListener('click', () => {
+            if (!ana_isRecordingFile) {
+                if (!ana_mediaStream) {
+                    showToast('請先開啟「收音」');
+                    return;
+                }
+                
+                ana_recordedChunks = [];
+                let options = { mimeType: 'audio/webm;codecs=opus' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = { mimeType: 'audio/webm' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options = { mimeType: 'audio/mp4' };
+                    }
+                }
+                
+                try {
+                    ana_mediaRecorder = new MediaRecorder(ana_mediaStream, options);
+                } catch (e) {
+                    AppLogger.error("AnaRecord", "MediaRecorder format fallback", e);
+                    ana_mediaRecorder = new MediaRecorder(ana_mediaStream);
+                }
+
+                ana_mediaRecorder.ondataavailable = (e) => {
+                    if (e.data && e.data.size > 0) {
+                        ana_recordedChunks.push(e.data);
+                    }
+                };
+
+                ana_mediaRecorder.onstop = () => {
+                    const blob = new Blob(ana_recordedChunks, { type: ana_mediaRecorder.mimeType || 'audio/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    
+                    const d = new Date();
+                    const timeStr = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}${String(d.getSeconds()).padStart(2,'0')}`;
+                    
+                    let ext = '.webm';
+                    if (ana_mediaRecorder.mimeType.includes('mp4')) ext = '.mp4';
+                    else if (ana_mediaRecorder.mimeType.includes('ogg')) ext = '.ogg';
+                    
+                    a.download = 'AudioApp_Record_' + timeStr + ext;
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+                    showToast('錄音已儲存，可透過「匯入音檔」讀取');
+                };
+
+                ana_mediaRecorder.start();
+                ana_isRecordingFile = true;
+                
+                const btn = document.getElementById('btnAnaRecordFile');
+                btn.innerHTML = '⏹<br>停錄';
+                btn.className = 'btn btn-warning btn-square';
+                showToast('開始錄音...');
+                AppLogger.info("AnaRecord", "File recording started");
+                
+            } else {
+                if (ana_mediaRecorder && ana_mediaRecorder.state !== 'inactive') {
+                    ana_mediaRecorder.stop();
+                }
+                ana_isRecordingFile = false;
+                const btn = document.getElementById('btnAnaRecordFile');
+                btn.innerHTML = '🔴<br>錄檔';
+                btn.className = 'btn btn-danger btn-square';
+                AppLogger.info("AnaRecord", "File recording stopped");
             }
         });
 
