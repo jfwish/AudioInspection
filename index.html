@@ -363,6 +363,9 @@
             opacity: 0;
             overflow: hidden;
             border: none;
+            /* 🌟 核心修正：徹底封殺收攏後的隱形點擊攔截 */
+            pointer-events: none;
+            visibility: hidden;
         }
 
         #anaOverlayToggle {
@@ -574,10 +577,11 @@
 
                 <div class="card" style="position: relative;">
                     <h2 style="margin-top: 0; text-align: center;">音訊頻譜圖 (Audio Spectrum)</h2>
-                    <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 10px; font-size: 12px; font-weight: bold;">
+                    <div style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 10px; font-size: 12px; font-weight: bold;">
+                        <button type="button" id="btnToggleWaveformHome" class="btn btn-sm btn-secondary" onclick="toggleWaveformLineHome(event)" style="width: auto; padding: 4px 10px;">📈 顯示波形線</button>
                         <span style="color: #999;">■ 原始收音 (Input)</span>
                         <span style="color: #007bff;">■ 處理後輸出 (Output)</span>
-                    </div>
+                    </div>                    
                     <canvas id="spectrumCanvas" width="560" height="340" style="width: 100%; height: 340px; background: #111; border-radius: 8px; box-shadow: inset 0 2px 5px rgba(0,0,0,0.5); touch-action: none;"></canvas>
                 </div>
 
@@ -611,7 +615,7 @@
                     </div>
                 </div>
 
-                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.1.1.6</p>
+                <p style="font-size: 13px; color: #666; text-align: center; margin-top: 20px;">AudioApp_v0.1.2.3</p>
             </div>
 
             <!-- ========================================== -->
@@ -783,9 +787,10 @@
                 </div>
 
                 <!-- 滿版頻譜圖 (圖例絕對水平置中) -->
-                <div style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); font-size: 12px; font-weight: bold; z-index: 50; background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 8px; white-space: nowrap;">
-                    <span style="color: #ccc;">■ 原始收音 (Input)</span>&nbsp;&nbsp;
-                    <span style="color: #007bff;">■ 處理後輸出 (Output)</span>
+                <div style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); font-size: 12px; font-weight: bold; z-index: 50; background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 8px; white-space: nowrap; display: flex; align-items: center; gap: 10px;">
+                    <button type="button" id="btnToggleWaveformAna" class="btn btn-sm btn-secondary" onclick="toggleWaveformLineAna(event)" style="width: auto; padding: 2px 8px; font-size: 11px;">📈 顯示波形線</button>
+                    <span style="color: #ccc;">■ 原始收音 (Input)</span>
+                    <span style="color: #4da3ff;">■ 處理後輸出 (Output)</span>
                 </div>
                 <!-- 加上 touch-action: none 防止原生滾動干擾 -->
                 <canvas id="anaSpectrumCanvas" style="width: 100%; height: 100%; background: #111; display: block; touch-action: none;"></canvas>
@@ -1673,9 +1678,60 @@
             };
         }
 
+        let isShowWaveformLineHome = false;
+        let isShowWaveformLineAna = false;
+
+        function toggleWaveformLineHome(event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            isShowWaveformLineHome = !isShowWaveformLineHome;
+
+            const btnHome = document.getElementById('btnToggleWaveformHome');
+            if (btnHome) {
+                btnHome.textContent = isShowWaveformLineHome ? '📉 隱藏波形線' : '📈 顯示波形線';
+                btnHome.className = isShowWaveformLineHome ? 'btn btn-sm btn-info' : 'btn btn-sm btn-secondary';
+            }
+
+            const isMainFrozen = mainSpecRef && !mainSpecRef.animId && mainSpecRef.inData;
+            if (isMainFrozen) {
+                const canvas = document.getElementById('spectrumCanvas');
+                const ctx = canvas.getContext('2d');
+                const sampleRate = mainSpecRef.ctx && mainSpecRef.ctx.sampleRate ? mainSpecRef.ctx.sampleRate : 48000;
+                const maxFreq = sampleRate / 2;
+                runSpectrumAnimation(ctx, canvas, mainSpecRef.inAna, mainSpecRef.outAna, mainSpecRef.inData, mainSpecRef.outData, maxFreq, mainSpecRef.view, true);
+            }
+        }
+
+        function toggleWaveformLineAna(event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            isShowWaveformLineAna = !isShowWaveformLineAna;
+
+            const btnAna = document.getElementById('btnToggleWaveformAna');
+            if (btnAna) {
+                btnAna.textContent = isShowWaveformLineAna ? '📉 隱藏波形線' : '📈 顯示波形線';
+                btnAna.className = isShowWaveformLineAna ? 'btn btn-sm btn-info' : 'btn btn-sm btn-secondary';
+            }
+
+            const isAnaFrozen = anaSpecRef && !anaSpecRef.animId && anaSpecRef.inData;
+            if (isAnaFrozen) {
+                const canvas = document.getElementById('anaSpectrumCanvas');
+                const ctx = canvas.getContext('2d');
+                const sampleRate = anaSpecRef.ctx && anaSpecRef.ctx.sampleRate ? anaSpecRef.ctx.sampleRate : 48000;
+                const maxFreq = sampleRate / 2;
+                runSpectrumAnimation(ctx, canvas, anaSpecRef.inAna, anaSpecRef.outAna, anaSpecRef.inData, anaSpecRef.outData, maxFreq, anaSpecRef.view, true);
+            }
+        }
+
         function runSpectrumAnimation(ctx, canvas, inAnalyser, outAnalyser, inData, outData, maxFreq, viewRef, isFrozen = false) {
-            // 🌟 如果是凍結狀態，就不去讀取新的 (空的) 聲音數據
-            if (!isFrozen) {
+            const frozenState = isFrozen ? true : false;
+            if (!frozenState) {
                 inAnalyser.getFloatFrequencyData(inData);
                 outAnalyser.getFloatFrequencyData(outData);
             }
@@ -1685,56 +1741,124 @@
             const span = viewEnd - viewStart;
 
             const { pad, gW, gH } = drawSpectrumGrid(ctx, canvas.width, canvas.height, viewStart, viewEnd);
-            
+
             const bufferLength = inAnalyser.frequencyBinCount;
             const binHz = maxFreq / bufferLength;
             const barWidth = gW * (binHz / span);
 
             for (let i = 0; i < bufferLength; i++) {
                 const binFreq = i * binHz;
-                if (binFreq + binHz < viewStart || binFreq > viewEnd) {
+                const outOfBounds = binFreq + binHz < viewStart || binFreq > viewEnd;
+                if (outOfBounds) {
                     continue;
                 }
 
                 let x = pad.l + gW * ((binFreq - viewStart) / span);
                 let drawX = Math.max(pad.l, x);
                 let drawW = barWidth;
-                
+
                 if (x < pad.l) {
                     drawW -= (pad.l - x);
                 }
+
                 if (drawX + drawW > pad.l + gW) {
                     drawW = (pad.l + gW) - drawX;
                 }
+
                 if (drawW <= 0) {
                     continue;
                 }
 
                 let inPercent = (inData[i] - (-100)) / 100;
-                if (inPercent < 0) {
-                    inPercent = 0;
-                }
-                if (inPercent > 1) {
-                    inPercent = 1;
-                }
+                inPercent = inPercent < 0 ? 0 : inPercent;
+                inPercent = inPercent > 1 ? 1 : inPercent;
+
                 let outPercent = (outData[i] - (-100)) / 100;
-                if (outPercent < 0) {
-                    outPercent = 0;
-                }
-                if (outPercent > 1) {
-                    outPercent = 1;
-                }
+                outPercent = outPercent < 0 ? 0 : outPercent;
+                outPercent = outPercent > 1 ? 1 : outPercent;
 
                 const inputHeight = inPercent * gH;
                 const outputHeight = outPercent * gH;
 
                 ctx.fillStyle = 'rgba(150, 150, 150, 0.6)';
-                ctx.fillRect(drawX, pad.t + gH - inputHeight, drawW > 1 ? drawW - 1 : drawW, inputHeight);
+                const inDrawW = drawW > 1 ? drawW - 1 : drawW;
+                ctx.fillRect(drawX, pad.t + gH - inputHeight, inDrawW, inputHeight);
 
                 ctx.fillStyle = 'rgba(0, 123, 255, 0.9)';
                 const outWidth = Math.max(1, (drawW - 1) * 0.5);
                 const outX = drawX + ((drawW - 1) - outWidth) / 2;
                 ctx.fillRect(outX, pad.t + gH - outputHeight, outWidth, outputHeight);
+            }
+
+            // 🌟 核心修正：引擎會自動根據當前正在畫的 canvas 實體，判斷要使用哪個分頁的波形開關
+            let shouldDrawWaveform = false;
+            if (canvas.id === 'spectrumCanvas') {
+                shouldDrawWaveform = isShowWaveformLineHome;
+            } else if (canvas.id === 'anaSpectrumCanvas') {
+                shouldDrawWaveform = isShowWaveformLineAna;
+            }
+
+            if (shouldDrawWaveform) {
+                ctx.lineWidth = 1.5;
+                ctx.lineJoin = 'round';
+
+                ctx.strokeStyle = 'rgba(220, 220, 220, 1.0)';
+                ctx.beginPath();
+                let isFirstIn = true;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    const binFreq = i * binHz;
+                    const outOfBounds = binFreq + binHz < viewStart || binFreq > viewEnd;
+                    if (outOfBounds) {
+                        continue;
+                    }
+
+                    const centerX = pad.l + gW * ((binFreq - viewStart) / span) + (barWidth / 2);
+                    const clampedX = Math.max(pad.l, Math.min(pad.l + gW, centerX));
+
+                    let inPercent = (inData[i] - (-100)) / 100;
+                    inPercent = inPercent < 0 ? 0 : inPercent;
+                    inPercent = inPercent > 1 ? 1 : inPercent;
+
+                    const y = pad.t + gH - (inPercent * gH);
+
+                    if (isFirstIn) {
+                        ctx.moveTo(clampedX, y);
+                        isFirstIn = false;
+                    } else {
+                        ctx.lineTo(clampedX, y);
+                    }
+                }
+                ctx.stroke();
+
+                ctx.strokeStyle = 'rgba(50, 180, 255, 1.0)';
+                ctx.beginPath();
+                let isFirstOut = true;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    const binFreq = i * binHz;
+                    const outOfBounds = binFreq + binHz < viewStart || binFreq > viewEnd;
+                    if (outOfBounds) {
+                        continue;
+                    }
+
+                    const centerX = pad.l + gW * ((binFreq - viewStart) / span) + (barWidth / 2);
+                    const clampedX = Math.max(pad.l, Math.min(pad.l + gW, centerX));
+
+                    let outPercent = (outData[i] - (-100)) / 100;
+                    outPercent = outPercent < 0 ? 0 : outPercent;
+                    outPercent = outPercent > 1 ? 1 : outPercent;
+
+                    const y = pad.t + gH - (outPercent * gH);
+
+                    if (isFirstOut) {
+                        ctx.moveTo(clampedX, y);
+                        isFirstOut = false;
+                    } else {
+                        ctx.lineTo(clampedX, y);
+                    }
+                }
+                ctx.stroke();
             }
         }
 
